@@ -15,7 +15,7 @@ export default function Layout({ children }) {
   const navLink = (path, label) => (
     <Link
       to={path}
-      className={`nav-link ${location.pathname === path ? 'active' : ''}`}
+      className={'nav-link ' + (location.pathname === path ? 'active' : '')}
     >
       {label}
     </Link>
@@ -30,7 +30,7 @@ export default function Layout({ children }) {
               src="/logo.png"
               alt="Drive Personnel"
               className="brand-logo"
-              onError={(e) => { e.target.style.display = 'none' }}
+              onError={e => { e.target.style.display = 'none' }}
             />
             <div className="brand-text">
               <span className="brand-name">Drive Personnel</span>
@@ -38,7 +38,7 @@ export default function Layout({ children }) {
             </div>
           </Link>
           <nav className="topbar-nav">
-            {navLink('/', 'Home')}
+            {navLink('/', 'Wiki')}
             {navLink('/rates', 'Rates')}
             {navLink('/induction', 'Induction Links')}
           </nav>
@@ -52,10 +52,10 @@ export default function Layout({ children }) {
           )}
           {isSuperAdmin && (
             <button className="outline sm" onClick={() => navigate('/admin')}>
-              ⚙ Manage Users
+              Manage Users
             </button>
           )}
-          <span className={`role-badge role-${profile?.role}`}>
+          <span className={'role-badge role-' + profile?.role}>
             {ROLE_LABELS[profile?.role] ?? 'Member'}
           </span>
           <span className="who">{profile?.full_name ?? profile?.email}</span>

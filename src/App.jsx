@@ -7,11 +7,12 @@ import ArticleView from './pages/ArticleView'
 import ArticleEditor from './pages/ArticleEditor'
 import AdminPanel from './pages/AdminPanel'
 import Rates from './pages/Rates'
+import InductionLinks from './pages/InductionLinks'
 
 export default function App() {
   const { session, isAdmin, isSuperAdmin, loading } = useAuth()
 
-  if (loading) return <div className="splash">Loading…</div>
+  if (loading) return <div className="splash">Loading...</div>
 
   if (!session) {
     return (
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/edit/:id" element={isAdmin ? <ArticleEditor /> : <Navigate to="/" />} />
         <Route path="/admin" element={isSuperAdmin ? <AdminPanel /> : <Navigate to="/" />} />
         <Route path="/rates" element={<Rates />} />
+        <Route path="/induction" element={<InductionLinks />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>
