@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
-import { read, utils } from 'xlsx'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+
+const EMPTY_FORM = { position: '', rate: '', unit: 'per hour', notes: '' }
+const UNITS = ['per hour', 'per day', 'per week', 'per shift', 'flat rate']
 
 export default function Rates() {
   const { isAdmin } = useAuth()
@@ -14,13 +16,12 @@ export default function Rates() {
   const [newClient, setNewClient] = useState('')
   const [addingClient, setAddingClient] = useState(false)
 
-  // Excel modal
+  // Rate modal
   const [showModal, setShowModal] = useState(false)
-  const [preview, setPreview] = useState([])
-  const [fileName, setFileName] = useState('')
+  const [editingRate, setEditingRate] = useState(null) // null = new, object = editing
+  const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
-  const fileRef = useRef()
+  const [error, setError] = useState(null)
 
   async function loadClients() {
     const { data } = await supabase.from('clients').select('*').order('sort_order').order('name')
@@ -66,57 +67,63 @@ export default function Rates() {
     await loadClients()
   }
 
+  function openAdd() {
+    setEditingRate(null)
+    setForm(EMPTY_FORM)
+    setError(null)
+    setShowModal(true)
+  }
+
+  function openEdit(rate) {
+    setEditingRate(rate)
+    setForm({
+      position: rate.position,
+      rate: rate.rate.toString(),
+      unit: rate.unit,
+      notes: rate.notes || '',
+    })
+    setError(null)
+    setShowModal(true)
+  }
+
+  function closeModal() {
+    setShowModal(false)
+    setEditingRate(null)
+    setForm(EMPTY_FORM)
+    setError(null)
+  }
+
+  async function saveRate() {
+    if (!form.position.trim()) return setError('Position is required.')
+    if (!form.rate || isNaN(parseFloat(form.rate))) return setError('Enter a valid rate.')
+    setSaving(true); setError(null)
+
+    const payload = {
+      position: form.position.trim(),
+      rate: parseFloat(form.rate),
+      unit: form.unit,
+      notes: form.notes.trim() || null,
+    }
+
+    let err
+    if (editingRate) {
+      const res = await supabase.from('rates').update(payload).eq('id', editingRate.id)
+      err = res.error
+    } else {
+      const res = await supabase.from('rates').insert({ ...payload, client_id: selectedId })
+      err = res.error
+    }
+
+    setSaving(false)
+    if (err) return setError(err.message)
+    closeModal()
+    await loadRates(selectedId)
+  }
+
   async function deleteRate(id) {
     if (!confirm('Delete this rate?')) return
     await supabase.from('rates').delete().eq('id', id)
     await loadRates(selectedId)
-  }
-
-  // Parse Excel file into preview rows
-  function parseFile(file) {
-    if (!file) return
-    setFileName(file.name)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const wb = read(e.target.result, { type: 'array' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = utils.sheet_to_json(ws, { defval: '' })
-      // Normalize column names (case-insensitive)
-      const normalized = rows.map(row => {
-        const lower = {}
-        Object.keys(row).forEach(k => { lower[k.toLowerCase().trim()] = row[k] })
-        return {
-          position: lower['position'] || lower['role'] || lower['title'] || lower['name'] || '',
-          rate:     parseFloat(lower['rate'] || lower['amount'] || lower['pay'] || 0) || 0,
-          unit:     lower['unit'] || lower['period'] || lower['type'] || 'per hour',
-          notes:    lower['notes'] || lower['note'] || lower['comments'] || '',
-        }
-      }).filter(r => r.position && r.rate > 0)
-      setPreview(normalized)
-    }
-    reader.readAsArrayBuffer(file)
-  }
-
-  function handleDrop(e) {
-    e.preventDefault(); setDragOver(false)
-    parseFile(e.dataTransfer.files[0])
-  }
-
-  async function saveToSupabase() {
-    if (!selectedId || preview.length === 0) return
-    setSaving(true)
-    const rows = preview.map(r => ({ ...r, client_id: selectedId }))
-    const { error } = await supabase.from('rates').insert(rows)
-    if (error) { alert(error.message); setSaving(false); return }
-    setShowModal(false)
-    setPreview([])
-    setFileName('')
-    await loadRates(selectedId)
-    setSaving(false)
-  }
-
-  function closeModal() {
-    setShowModal(false); setPreview([]); setFileName('')
   }
 
   const selectedClient = clients.find(c => c.id === selectedId)
@@ -147,7 +154,7 @@ export default function Rates() {
         )}
       </div>
 
-      {/* Add client (admin) */}
+      {/* Add client */}
       {isAdmin && (
         <div className="add-client-row">
           <input
@@ -163,13 +170,13 @@ export default function Rates() {
         </div>
       )}
 
-      {/* Rates section */}
+      {/* Rates table */}
       {selectedId && (
         <div className="rates-table-wrap">
           <div className="rates-table-head">
             <h2>{selectedClient?.name}</h2>
             {isAdmin && (
-              <button className="primary sm" onClick={() => setShowModal(true)}>
+              <button className="primary sm" onClick={openAdd}>
                 + Add New
               </button>
             )}
@@ -178,7 +185,7 @@ export default function Rates() {
           {loadingRates ? (
             <p className="muted">Loading…</p>
           ) : rates.length === 0 ? (
-            <p className="muted empty">No rates yet. Click "Add New" to upload an Excel file.</p>
+            <p className="muted empty">No rates yet. Click "+ Add New" to get started.</p>
           ) : (
             <table className="user-table" style={{ marginTop: 16 }}>
               <thead>
@@ -199,7 +206,10 @@ export default function Rates() {
                     <td className="muted">{r.notes || '—'}</td>
                     {isAdmin && (
                       <td>
-                        <button className="link danger" onClick={() => deleteRate(r.id)}>Delete</button>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="link" onClick={() => openEdit(r)}>Edit</button>
+                          <button className="link danger" onClick={() => deleteRate(r.id)}>Delete</button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -210,87 +220,53 @@ export default function Rates() {
         </div>
       )}
 
-      {/* Excel upload modal */}
+      {/* Add / Edit modal */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Upload Rates from Excel</h2>
+              <h2>{editingRate ? 'Edit Rate' : 'Add New Rate'}</h2>
               <button className="modal-close" onClick={closeModal}>✕</button>
             </div>
 
-            <p className="muted" style={{ marginBottom: 16 }}>
-              Your Excel file should have columns: <strong>Position, Rate, Unit, Notes</strong>
-              <br />The first row should be the header row.
-            </p>
-
-            {/* Drop zone */}
-            <div
-              className={`drop-zone ${dragOver ? 'drag-over' : ''} ${fileName ? 'has-file' : ''}`}
-              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={() => fileRef.current.click()}
-            >
+            <div className="modal-body">
+              <label className="field-label">Position / Role</label>
               <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                style={{ display: 'none' }}
-                onChange={e => parseFile(e.target.files[0])}
+                placeholder="e.g. Casual Labour, Supervisor"
+                value={form.position}
+                onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
               />
-              {fileName ? (
-                <>
-                  <div className="drop-icon">📊</div>
-                  <p className="drop-label">{fileName}</p>
-                  <p className="muted">{preview.length} rows found — click to change</p>
-                </>
-              ) : (
-                <>
-                  <div className="drop-icon">📂</div>
-                  <p className="drop-label">Drop your Excel file here</p>
-                  <p className="muted">or click to browse</p>
-                </>
-              )}
-            </div>
 
-            {/* Preview table */}
-            {preview.length > 0 && (
-              <div className="preview-wrap">
-                <p className="preview-label">Preview — {preview.length} rows to import</p>
-                <div className="preview-scroll">
-                  <table className="user-table">
-                    <thead>
-                      <tr>
-                        <th>Position / Role</th>
-                        <th>Rate</th>
-                        <th>Unit</th>
-                        <th>Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.map((r, i) => (
-                        <tr key={i}>
-                          <td>{r.position}</td>
-                          <td className="rate-amount">${r.rate.toFixed(2)}</td>
-                          <td className="muted">{r.unit}</td>
-                          <td className="muted">{r.notes || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+              <label className="field-label">Rate ($)</label>
+              <input
+                type="number"
+                placeholder="e.g. 35.00"
+                value={form.rate}
+                onChange={e => setForm(f => ({ ...f, rate: e.target.value }))}
+              />
+
+              <label className="field-label">Unit</label>
+              <select
+                value={form.unit}
+                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+              >
+                {UNITS.map(u => <option key={u}>{u}</option>)}
+              </select>
+
+              <label className="field-label">Notes (optional)</label>
+              <input
+                placeholder="e.g. Weekdays only"
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              />
+
+              {error && <p className="auth-msg">{error}</p>}
+            </div>
 
             <div className="modal-footer">
               <button className="link" onClick={closeModal}>Cancel</button>
-              <button
-                className="primary"
-                onClick={saveToSupabase}
-                disabled={saving || preview.length === 0}
-              >
-                {saving ? 'Saving…' : `Import ${preview.length} rows`}
+              <button className="primary" onClick={saveRate} disabled={saving}>
+                {saving ? 'Saving…' : editingRate ? 'Save changes' : 'Add rate'}
               </button>
             </div>
           </div>

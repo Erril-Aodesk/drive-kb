@@ -267,3 +267,7 @@ button.link.danger { color: #C0392B; }
 .preview-wrap { padding: 16px 28px 0; }
 .preview-label { font-size: 13px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }
 .preview-scroll { max-height: 220px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--line); }
+
+/* ---- MODAL BODY ---- */
+.modal-body { padding: 16px 28px; display: flex; flex-direction: column; }
+.field-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
