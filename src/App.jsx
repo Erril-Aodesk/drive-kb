@@ -6,6 +6,7 @@ import ArticleList from './pages/ArticleList'
 import ArticleView from './pages/ArticleView'
 import ArticleEditor from './pages/ArticleEditor'
 import AdminPanel from './pages/AdminPanel'
+import Rates from './pages/Rates'
 
 export default function App() {
   const { session, isAdmin, isSuperAdmin, loading } = useAuth()
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/new" element={isAdmin ? <ArticleEditor /> : <Navigate to="/" />} />
         <Route path="/edit/:id" element={isAdmin ? <ArticleEditor /> : <Navigate to="/" />} />
         <Route path="/admin" element={isSuperAdmin ? <AdminPanel /> : <Navigate to="/" />} />
+        <Route path="/rates" element={<Rates />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>

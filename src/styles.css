@@ -205,3 +205,34 @@ button.link.danger { color: #C0392B; }
 .user-table tr.self { background: var(--blue-light); }
 .email-cell { color: var(--muted); font-size: 13px; }
 .user-table select { width: auto; margin: 0; padding: 6px 10px; font-size: 13px; }
+
+/* ---- NAV LINKS ---- */
+.topbar-left { display: flex; align-items: center; gap: 28px; }
+.topbar-nav { display: flex; gap: 4px; }
+.nav-link {
+  text-decoration: none; font-weight: 700; font-size: 14px;
+  color: var(--muted); padding: 6px 12px; border-radius: 8px;
+  transition: color .15s, background .15s;
+}
+.nav-link:hover { color: var(--navy); background: var(--blue-light); }
+.nav-link.active { color: var(--navy); background: var(--blue-light); }
+
+/* ---- RATES PAGE ---- */
+.rates-header { margin-bottom: 24px; }
+.rates-header h1 { color: var(--navy); }
+.client-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.client-select { max-width: 320px; margin: 0; }
+.add-client-row { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+.rates-table-wrap { margin-top: 8px; }
+.rates-table-head {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 4px;
+}
+.rates-table-head h2 { font-family: var(--display); color: var(--navy); margin: 0; }
+.rate-form {
+  background: var(--blue-light); border: 1px solid var(--line);
+  border-radius: 12px; padding: 20px; margin: 16px 0;
+}
+.rate-form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.rate-form-row input, .rate-form-row select { margin: 0; }
+.rate-amount { font-weight: 700; color: var(--navy); font-family: var(--ui); }

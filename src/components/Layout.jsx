@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const ROLE_LABELS = {
@@ -10,22 +10,38 @@ const ROLE_LABELS = {
 export default function Layout({ children }) {
   const { profile, isAdmin, isSuperAdmin, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const navLink = (path, label) => (
+    <Link
+      to={path}
+      className={`nav-link ${location.pathname === path ? 'active' : ''}`}
+    >
+      {label}
+    </Link>
+  )
 
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand">
-          <img
-            src="/logo.png"
-            alt="Drive Personnel"
-            className="brand-logo"
-            onError={(e) => { e.target.style.display = 'none' }}
-          />
-          <div className="brand-text">
-            <span className="brand-name">Drive Personnel</span>
-            <span className="brand-tagline">Knowledge Base</span>
-          </div>
-        </Link>
+        <div className="topbar-left">
+          <Link to="/" className="brand">
+            <img
+              src="/logo.png"
+              alt="Drive Personnel"
+              className="brand-logo"
+              onError={(e) => { e.target.style.display = 'none' }}
+            />
+            <div className="brand-text">
+              <span className="brand-name">Drive Personnel</span>
+              <span className="brand-tagline">Knowledge Base</span>
+            </div>
+          </Link>
+          <nav className="topbar-nav">
+            {navLink('/', 'Wiki')}
+            {navLink('/rates', 'Rates')}
+          </nav>
+        </div>
 
         <div className="topbar-right">
           {isAdmin && (
