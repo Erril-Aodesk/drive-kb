@@ -8,7 +8,6 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Load the profile row (which holds the role) for a given user id.
   async function loadProfile(userId) {
     const { data } = await supabase
       .from('profiles')
@@ -38,7 +37,8 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     profile,
-    isAdmin: profile?.role === 'admin',
+    isAdmin: profile?.role === 'admin' || profile?.role === 'super_admin',
+    isSuperAdmin: profile?.role === 'super_admin',
     loading,
     signOut: () => supabase.auth.signOut(),
   }
