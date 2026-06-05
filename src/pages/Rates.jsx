@@ -2,26 +2,22 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const EMPTY_FORM = { position: '', rate: '', unit: 'per hour', notes: '' }
 const UNITS = ['per hour', 'per day', 'per week', 'per shift', 'flat rate']
+const EMPTY_ROW = () => ({ _id: crypto.randomUUID(), _new: true, position: '', rate: '', unit: 'per hour', notes: '' })
 
 export default function Rates() {
   const { isAdmin } = useAuth()
   const [clients, setClients] = useState([])
   const [selectedId, setSelectedId] = useState('')
-  const [rates, setRates] = useState([])
-  const [loadingRates, setLoadingRates] = useState(false)
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [savedMsg, setSavedMsg] = useState(false)
 
   // Client form
   const [newClient, setNewClient] = useState('')
   const [addingClient, setAddingClient] = useState(false)
-
-  // Rate modal
-  const [showModal, setShowModal] = useState(false)
-  const [editingRate, setEditingRate] = useState(null) // null = new, object = editing
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
 
   async function loadClients() {
     const { data } = await supabase.from('clients').select('*').order('sort_order').order('name')
@@ -29,21 +25,22 @@ export default function Rates() {
   }
 
   async function loadRates(clientId) {
-    setLoadingRates(true)
+    setLoading(true)
     const { data } = await supabase
       .from('rates')
       .select('*')
       .eq('client_id', clientId)
       .order('position')
-    setRates(data ?? [])
-    setLoadingRates(false)
+    setRows((data ?? []).map(r => ({ ...r, _id: r.id, _new: false })))
+    setDirty(false)
+    setLoading(false)
   }
 
   useEffect(() => { loadClients() }, [])
 
   useEffect(() => {
     if (selectedId) loadRates(selectedId)
-    else setRates([])
+    else { setRows([]); setDirty(false) }
   }, [selectedId])
 
   async function addClient() {
@@ -52,8 +49,7 @@ export default function Rates() {
     const { data } = await supabase
       .from('clients')
       .insert({ name: newClient.trim() })
-      .select('id')
-      .single()
+      .select('id').single()
     setNewClient('')
     await loadClients()
     if (data) setSelectedId(data.id)
@@ -67,63 +63,57 @@ export default function Rates() {
     await loadClients()
   }
 
-  function openAdd() {
-    setEditingRate(null)
-    setForm(EMPTY_FORM)
-    setError(null)
-    setShowModal(true)
+  function updateRow(id, field, value) {
+    setRows(prev => prev.map(r => r._id === id ? { ...r, [field]: value } : r))
+    setDirty(true)
   }
 
-  function openEdit(rate) {
-    setEditingRate(rate)
-    setForm({
-      position: rate.position,
-      rate: rate.rate.toString(),
-      unit: rate.unit,
-      notes: rate.notes || '',
-    })
-    setError(null)
-    setShowModal(true)
+  function addRow() {
+    setRows(prev => [...prev, EMPTY_ROW()])
+    setDirty(true)
   }
 
-  function closeModal() {
-    setShowModal(false)
-    setEditingRate(null)
-    setForm(EMPTY_FORM)
-    setError(null)
+  async function deleteRow(row) {
+    if (!row._new && !confirm('Delete this row?')) return
+    if (!row._new) await supabase.from('rates').delete().eq('id', row.id)
+    setRows(prev => prev.filter(r => r._id !== row._id))
+    setDirty(true)
   }
 
-  async function saveRate() {
-    if (!form.position.trim()) return setError('Position is required.')
-    if (!form.rate || isNaN(parseFloat(form.rate))) return setError('Enter a valid rate.')
-    setSaving(true); setError(null)
+  async function saveAll() {
+    const invalid = rows.find(r => !r.position.trim() || !r.rate || isNaN(parseFloat(r.rate)))
+    if (invalid) return alert('All rows need a Position and a valid Rate.')
+    setSaving(true)
 
-    const payload = {
-      position: form.position.trim(),
-      rate: parseFloat(form.rate),
-      unit: form.unit,
-      notes: form.notes.trim() || null,
+    const newRows = rows.filter(r => r._new)
+    const existingRows = rows.filter(r => !r._new)
+
+    if (newRows.length > 0) {
+      await supabase.from('rates').insert(
+        newRows.map(r => ({
+          client_id: selectedId,
+          position: r.position.trim(),
+          rate: parseFloat(r.rate),
+          unit: r.unit,
+          notes: r.notes.trim() || null,
+        }))
+      )
     }
 
-    let err
-    if (editingRate) {
-      const res = await supabase.from('rates').update(payload).eq('id', editingRate.id)
-      err = res.error
-    } else {
-      const res = await supabase.from('rates').insert({ ...payload, client_id: selectedId })
-      err = res.error
+    for (const r of existingRows) {
+      await supabase.from('rates').update({
+        position: r.position.trim(),
+        rate: parseFloat(r.rate),
+        unit: r.unit,
+        notes: r.notes.trim() || null,
+      }).eq('id', r.id)
     }
 
+    await loadRates(selectedId)
     setSaving(false)
-    if (err) return setError(err.message)
-    closeModal()
-    await loadRates(selectedId)
-  }
-
-  async function deleteRate(id) {
-    if (!confirm('Delete this rate?')) return
-    await supabase.from('rates').delete().eq('id', id)
-    await loadRates(selectedId)
+    setDirty(false)
+    setSavedMsg(true)
+    setTimeout(() => setSavedMsg(false), 3000)
   }
 
   const selectedClient = clients.find(c => c.id === selectedId)
@@ -132,7 +122,7 @@ export default function Rates() {
     <div className="rates-page">
       <div className="rates-header">
         <h1>Rates</h1>
-        <p className="muted">Select a client to view their rates.</p>
+        <p className="muted">Select a client to view and edit their rates.</p>
       </div>
 
       {/* Client dropdown */}
@@ -170,106 +160,115 @@ export default function Rates() {
         </div>
       )}
 
-      {/* Rates table */}
+      {/* Spreadsheet */}
       {selectedId && (
-        <div className="rates-table-wrap">
+        <div className="sheet-wrap">
           <div className="rates-table-head">
             <h2>{selectedClient?.name}</h2>
             {isAdmin && (
-              <button className="primary sm" onClick={openAdd}>
-                + Add New
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {savedMsg && <span className="saved-msg">✓ Saved</span>}
+                {dirty && (
+                  <button className="primary sm" onClick={saveAll} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </button>
+                )}
+                <button className="outline sm" onClick={addRow}>+ Add row</button>
+              </div>
             )}
           </div>
 
-          {loadingRates ? (
+          {loading ? (
             <p className="muted">Loading…</p>
-          ) : rates.length === 0 ? (
-            <p className="muted empty">No rates yet. Click "+ Add New" to get started.</p>
           ) : (
-            <table className="user-table" style={{ marginTop: 16 }}>
-              <thead>
-                <tr>
-                  <th>Position / Role</th>
-                  <th>Rate</th>
-                  <th>Unit</th>
-                  <th>Notes</th>
-                  {isAdmin && <th></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {rates.map(r => (
-                  <tr key={r.id}>
-                    <td><strong>{r.position}</strong></td>
-                    <td className="rate-amount">${parseFloat(r.rate).toFixed(2)}</td>
-                    <td className="muted">{r.unit}</td>
-                    <td className="muted">{r.notes || '—'}</td>
-                    {isAdmin && (
-                      <td>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="link" onClick={() => openEdit(r)}>Edit</button>
-                          <button className="link danger" onClick={() => deleteRate(r.id)}>Delete</button>
-                        </div>
-                      </td>
-                    )}
+            <div className="sheet-scroll">
+              <table className="sheet-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '30%' }}>Position / Role</th>
+                    <th style={{ width: '15%' }}>Rate ($)</th>
+                    <th style={{ width: '18%' }}>Unit</th>
+                    <th>Notes</th>
+                    {isAdmin && <th style={{ width: 60 }}></th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && !isAdmin && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
+                        No rates added yet.
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map(row => (
+                    <tr key={row._id} className={row._new ? 'row-new' : ''}>
+                      <td>
+                        {isAdmin ? (
+                          <input
+                            className="cell-input"
+                            placeholder="e.g. Casual Labour"
+                            value={row.position}
+                            onChange={e => updateRow(row._id, 'position', e.target.value)}
+                          />
+                        ) : row.position}
+                      </td>
+                      <td>
+                        {isAdmin ? (
+                          <input
+                            className="cell-input"
+                            type="number"
+                            placeholder="0.00"
+                            value={row.rate}
+                            onChange={e => updateRow(row._id, 'rate', e.target.value)}
+                          />
+                        ) : (
+                          <span className="rate-amount">${parseFloat(row.rate).toFixed(2)}</span>
+                        )}
+                      </td>
+                      <td>
+                        {isAdmin ? (
+                          <select
+                            className="cell-input"
+                            value={row.unit}
+                            onChange={e => updateRow(row._id, 'unit', e.target.value)}
+                          >
+                            {UNITS.map(u => <option key={u}>{u}</option>)}
+                          </select>
+                        ) : (
+                          <span className="muted">{row.unit}</span>
+                        )}
+                      </td>
+                      <td>
+                        {isAdmin ? (
+                          <input
+                            className="cell-input"
+                            placeholder="Optional notes"
+                            value={row.notes}
+                            onChange={e => updateRow(row._id, 'notes', e.target.value)}
+                          />
+                        ) : (
+                          <span className="muted">{row.notes || '—'}</span>
+                        )}
+                      </td>
+                      {isAdmin && (
+                        <td>
+                          <button className="link danger" onClick={() => deleteRow(row)}>✕</button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {/* Empty add row for admin */}
+                  {isAdmin && rows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>
+                        <button className="link" onClick={addRow}>+ Add first row</button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
-      )}
-
-      {/* Add / Edit modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingRate ? 'Edit Rate' : 'Add New Rate'}</h2>
-              <button className="modal-close" onClick={closeModal}>✕</button>
-            </div>
-
-            <div className="modal-body">
-              <label className="field-label">Position / Role</label>
-              <input
-                placeholder="e.g. Casual Labour, Supervisor"
-                value={form.position}
-                onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
-              />
-
-              <label className="field-label">Rate ($)</label>
-              <input
-                type="number"
-                placeholder="e.g. 35.00"
-                value={form.rate}
-                onChange={e => setForm(f => ({ ...f, rate: e.target.value }))}
-              />
-
-              <label className="field-label">Unit</label>
-              <select
-                value={form.unit}
-                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-              >
-                {UNITS.map(u => <option key={u}>{u}</option>)}
-              </select>
-
-              <label className="field-label">Notes (optional)</label>
-              <input
-                placeholder="e.g. Weekdays only"
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              />
-
-              {error && <p className="auth-msg">{error}</p>}
-            </div>
-
-            <div className="modal-footer">
-              <button className="link" onClick={closeModal}>Cancel</button>
-              <button className="primary" onClick={saveRate} disabled={saving}>
-                {saving ? 'Saving…' : editingRate ? 'Save changes' : 'Add rate'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

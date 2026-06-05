@@ -271,3 +271,34 @@ button.link.danger { color: #C0392B; }
 /* ---- MODAL BODY ---- */
 .modal-body { padding: 16px 28px; display: flex; flex-direction: column; }
 .field-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+
+/* ---- SPREADSHEET ---- */
+.sheet-wrap { margin-top: 8px; }
+.sheet-scroll { overflow-x: auto; border-radius: 12px; border: 1px solid var(--line); margin-top: 16px; }
+.sheet-table { width: 100%; border-collapse: collapse; background: var(--card); }
+.sheet-table thead tr { background: var(--slate-light); }
+.sheet-table th {
+  text-align: left; padding: 11px 12px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted);
+  border-bottom: 2px solid var(--line);
+}
+.sheet-table td {
+  padding: 4px 4px; border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.sheet-table tr:last-child td { border-bottom: none; }
+.sheet-table tr:hover { background: var(--blue-light); }
+.sheet-table tr.row-new { background: #f0fbf4; }
+.sheet-table tr.row-new:hover { background: #e4f7ea; }
+
+.cell-input {
+  width: 100%; margin: 0; padding: 8px 10px;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--ink);
+  font-size: 14px;
+}
+.cell-input:hover { border-color: var(--line); background: var(--card); }
+.cell-input:focus { border-color: var(--blue); background: var(--card); outline: none; }
+
+.saved-msg { font-size: 13px; font-weight: 700; color: #1a7a4a; }
