@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
 const SHIFTS = ['Day Shift', 'Night Shift', 'Afternoon Shift', 'Weekend', 'Public Holiday', 'Casual', 'On-Call']
-const EMPTY_ROW = () => ({ _id: crypto.randomUUID(), _new: true, position: '', shift: 'Day Shift', rate: '', notes: '' })
+const EMPTY_ROW = () => ({ _id: crypto.randomUUID(), _new: true, position: '', shift: 'Day Shift', rate: '' })
 
 export default function Rates() {
   const { isAdmin } = useAuth()
@@ -15,7 +15,6 @@ export default function Rates() {
   const [dirty, setDirty] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
 
-  // Client form
   const [newClient, setNewClient] = useState('')
   const [addingClient, setAddingClient] = useState(false)
 
@@ -95,7 +94,6 @@ export default function Rates() {
           position: r.position.trim(),
           rate: parseFloat(r.rate),
           unit: r.shift,
-          notes: r.notes.trim() || null,
         }))
       )
     }
@@ -105,7 +103,6 @@ export default function Rates() {
         position: r.position.trim(),
         rate: parseFloat(r.rate),
         unit: r.shift,
-        notes: r.notes.trim() || null,
       }).eq('id', r.id)
     }
 
@@ -125,7 +122,6 @@ export default function Rates() {
         <p className="muted">Select a client to view and edit their rates.</p>
       </div>
 
-      {/* Client dropdown */}
       <div className="client-row">
         <select
           className="client-select"
@@ -144,7 +140,6 @@ export default function Rates() {
         )}
       </div>
 
-      {/* Add client */}
       {isAdmin && (
         <div className="add-client-row">
           <input
@@ -160,7 +155,6 @@ export default function Rates() {
         </div>
       )}
 
-      {/* Spreadsheet */}
       {selectedId && (
         <div className="sheet-wrap">
           <div className="rates-table-head">
@@ -185,10 +179,9 @@ export default function Rates() {
               <table className="sheet-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '25%' }}>Role</th>
-                    <th style={{ width: '20%' }}>Shift</th>
-                    <th style={{ width: '15%' }}>Rate ($)</th>
-                    <th>Notes</th>
+                    <th style={{ width: '35%' }}>Role</th>
+                    <th style={{ width: '30%' }}>Shift</th>
+                    <th style={{ width: '25%' }}>Rate ($)</th>
                     {isAdmin && <th style={{ width: 60 }}></th>}
                   </tr>
                 </thead>
@@ -231,18 +224,6 @@ export default function Rates() {
                           <span className="rate-amount">${parseFloat(row.rate).toFixed(2)}</span>
                         )}
                       </td>
-                      <td>
-                        {isAdmin ? (
-                          <input
-                            className="cell-input"
-                            placeholder="Optional notes"
-                            value={row.notes}
-                            onChange={e => updateRow(row._id, 'notes', e.target.value)}
-                          />
-                        ) : (
-                          <span className="muted">{row.notes || '—'}</span>
-                        )}
-                      </td>
                       {isAdmin && (
                         <td>
                           <button className="link danger" onClick={() => deleteRow(row)}>✕</button>
@@ -252,7 +233,7 @@ export default function Rates() {
                   ))}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={isAdmin ? 5 : 4} style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
+                      <td colSpan={isAdmin ? 4 : 3} style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
                         {isAdmin
                           ? <button className="link" onClick={addRow}>+ Add first row</button>
                           : 'No rates added yet.'}
