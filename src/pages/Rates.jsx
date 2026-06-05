@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const UNITS = ['per hour', 'per day', 'per week', 'per shift', 'flat rate']
-const EMPTY_ROW = () => ({ _id: crypto.randomUUID(), _new: true, position: '', rate: '', unit: 'per hour', notes: '' })
+const SHIFTS = ['Day Shift', 'Night Shift', 'Afternoon Shift', 'Weekend', 'Public Holiday', 'Casual', 'On-Call']
+const EMPTY_ROW = () => ({ _id: crypto.randomUUID(), _new: true, position: '', shift: 'Day Shift', rate: '', notes: '' })
 
 export default function Rates() {
   const { isAdmin } = useAuth()
@@ -31,7 +31,7 @@ export default function Rates() {
       .select('*')
       .eq('client_id', clientId)
       .order('position')
-    setRows((data ?? []).map(r => ({ ...r, _id: r.id, _new: false })))
+    setRows((data ?? []).map(r => ({ ...r, _id: r.id, _new: false, shift: r.unit })))
     setDirty(false)
     setLoading(false)
   }
@@ -82,7 +82,7 @@ export default function Rates() {
 
   async function saveAll() {
     const invalid = rows.find(r => !r.position.trim() || !r.rate || isNaN(parseFloat(r.rate)))
-    if (invalid) return alert('All rows need a Position and a valid Rate.')
+    if (invalid) return alert('All rows need a Role and a valid Rate.')
     setSaving(true)
 
     const newRows = rows.filter(r => r._new)
@@ -94,7 +94,7 @@ export default function Rates() {
           client_id: selectedId,
           position: r.position.trim(),
           rate: parseFloat(r.rate),
-          unit: r.unit,
+          unit: r.shift,
           notes: r.notes.trim() || null,
         }))
       )
@@ -104,7 +104,7 @@ export default function Rates() {
       await supabase.from('rates').update({
         position: r.position.trim(),
         rate: parseFloat(r.rate),
-        unit: r.unit,
+        unit: r.shift,
         notes: r.notes.trim() || null,
       }).eq('id', r.id)
     }
@@ -185,21 +185,14 @@ export default function Rates() {
               <table className="sheet-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '30%' }}>Position / Role</th>
+                    <th style={{ width: '25%' }}>Role</th>
+                    <th style={{ width: '20%' }}>Shift</th>
                     <th style={{ width: '15%' }}>Rate ($)</th>
-                    <th style={{ width: '18%' }}>Unit</th>
                     <th>Notes</th>
                     {isAdmin && <th style={{ width: 60 }}></th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.length === 0 && !isAdmin && (
-                    <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
-                        No rates added yet.
-                      </td>
-                    </tr>
-                  )}
                   {rows.map(row => (
                     <tr key={row._id} className={row._new ? 'row-new' : ''}>
                       <td>
@@ -214,6 +207,19 @@ export default function Rates() {
                       </td>
                       <td>
                         {isAdmin ? (
+                          <select
+                            className="cell-input"
+                            value={row.shift}
+                            onChange={e => updateRow(row._id, 'shift', e.target.value)}
+                          >
+                            {SHIFTS.map(s => <option key={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <span className="muted">{row.shift}</span>
+                        )}
+                      </td>
+                      <td>
+                        {isAdmin ? (
                           <input
                             className="cell-input"
                             type="number"
@@ -223,19 +229,6 @@ export default function Rates() {
                           />
                         ) : (
                           <span className="rate-amount">${parseFloat(row.rate).toFixed(2)}</span>
-                        )}
-                      </td>
-                      <td>
-                        {isAdmin ? (
-                          <select
-                            className="cell-input"
-                            value={row.unit}
-                            onChange={e => updateRow(row._id, 'unit', e.target.value)}
-                          >
-                            {UNITS.map(u => <option key={u}>{u}</option>)}
-                          </select>
-                        ) : (
-                          <span className="muted">{row.unit}</span>
                         )}
                       </td>
                       <td>
@@ -257,11 +250,12 @@ export default function Rates() {
                       )}
                     </tr>
                   ))}
-                  {/* Empty add row for admin */}
-                  {isAdmin && rows.length === 0 && (
+                  {rows.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>
-                        <button className="link" onClick={addRow}>+ Add first row</button>
+                      <td colSpan={isAdmin ? 5 : 4} style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
+                        {isAdmin
+                          ? <button className="link" onClick={addRow}>+ Add first row</button>
+                          : 'No rates added yet.'}
                       </td>
                     </tr>
                   )}
