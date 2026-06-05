@@ -29,7 +29,7 @@ export default function ArticleList() {
   return (
     <div className="list-page">
       <div className="list-head">
-        <h1>Knowledge base</h1>
+        <h1>Welcome to Drive Personnel Admin Bible</h1>
         <input
           className="search"
           placeholder="Search articles…"
