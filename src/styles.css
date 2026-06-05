@@ -217,22 +217,53 @@ button.link.danger { color: #C0392B; }
 .nav-link:hover { color: var(--navy); background: var(--blue-light); }
 .nav-link.active { color: var(--navy); background: var(--blue-light); }
 
-/* ---- RATES PAGE ---- */
-.rates-header { margin-bottom: 24px; }
-.rates-header h1 { color: var(--navy); }
-.client-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.client-select { max-width: 320px; margin: 0; }
-.add-client-row { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
-.rates-table-wrap { margin-top: 8px; }
-.rates-table-head {
-  display: flex; align-items: center;
-  justify-content: space-between; margin-bottom: 4px;
+/* ---- MODAL ---- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(15, 25, 60, 0.55);
+  display: grid; place-items: center;
+  padding: 20px;
 }
-.rates-table-head h2 { font-family: var(--display); color: var(--navy); margin: 0; }
-.rate-form {
-  background: var(--blue-light); border: 1px solid var(--line);
-  border-radius: 12px; padding: 20px; margin: 16px 0;
+.modal {
+  background: var(--card); border-radius: 16px;
+  width: 100%; max-width: 640px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.25);
+  display: flex; flex-direction: column; gap: 0;
+  max-height: 90vh; overflow: hidden;
 }
-.rate-form-row { display: flex; gap: 10px; margin-bottom: 12px; }
-.rate-form-row input, .rate-form-row select { margin: 0; }
-.rate-amount { font-weight: 700; color: var(--navy); font-family: var(--ui); }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 28px 0;
+}
+.modal-header h2 { color: var(--navy); font-size: 1.3rem; margin: 0; }
+.modal-close {
+  background: none; border: none; font-size: 18px;
+  color: var(--muted); cursor: pointer; padding: 4px 8px;
+  border-radius: 6px;
+}
+.modal-close:hover { background: var(--slate-light); color: var(--ink); }
+.modal > .muted { padding: 8px 28px 0; font-size: 13px; line-height: 1.6; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 28px 24px;
+  border-top: 1px solid var(--line); margin-top: 8px;
+}
+
+/* ---- DROP ZONE ---- */
+.drop-zone {
+  margin: 0 28px;
+  border: 2px dashed var(--line); border-radius: 12px;
+  padding: 32px 20px; text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--blue); background: var(--blue-light);
+}
+.drop-zone.has-file { border-color: var(--blue); background: var(--blue-light); }
+.drop-icon { font-size: 36px; margin-bottom: 8px; }
+.drop-label { font-weight: 700; color: var(--navy); margin: 0 0 4px; }
+
+/* ---- PREVIEW ---- */
+.preview-wrap { padding: 16px 28px 0; }
+.preview-label { font-size: 13px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }
+.preview-scroll { max-height: 220px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--line); }

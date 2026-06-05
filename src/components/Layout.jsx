@@ -38,7 +38,7 @@ export default function Layout({ children }) {
             </div>
           </Link>
           <nav className="topbar-nav">
-            {navLink('/', 'Wiki')}
+            {navLink('/', 'Home')}
             {navLink('/rates', 'Rates')}
           </nav>
         </div>
