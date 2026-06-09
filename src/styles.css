@@ -903,3 +903,60 @@ button.link.danger { color: #C0392B; }
 .site-select-item.selected .site-has-notes {
   background: rgba(255,255,255,.25); color: #fff;
 }
+
+/* ---- INDUCTION LINKS PAGINATED ---- */
+.induction-search-row {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+}
+.induction-count {
+  font-size: 13px; color: var(--muted); margin-bottom: 10px;
+}
+.induction-list { display: flex; flex-direction: column; }
+.induction-row {
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--line); padding: 2px 0;
+}
+.induction-row:last-child { border-bottom: none; }
+.induction-row-number {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  min-width: 28px; text-align: right; flex-shrink: 0;
+}
+.induction-row-link {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  padding: 10px 8px; text-decoration: none; color: inherit;
+  border-radius: 6px; transition: background .12s;
+}
+.induction-row-link:hover { background: var(--blue-light); }
+.induction-row-info {
+  flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+.induction-row-title { font-weight: 700; color: var(--navy); font-size: 14px; }
+.induction-row-desc { font-size: 12px; color: var(--muted); }
+.induction-row-arrow {
+  font-size: 14px; color: var(--blue); flex-shrink: 0;
+  opacity: 0; transition: opacity .12s;
+}
+.induction-row-link:hover .induction-row-arrow { opacity: 1; }
+.induction-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
+
+/* ---- PAGINATION ---- */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin-top: 24px; flex-wrap: wrap;
+}
+.page-btn {
+  padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  border: 1.5px solid var(--line); background: var(--card); color: var(--navy);
+  cursor: pointer; transition: all .12s;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--navy); background: var(--blue-light); }
+.page-btn:disabled { opacity: .4; cursor: default; }
+.page-numbers { display: flex; align-items: center; gap: 4px; }
+.page-num {
+  width: 34px; height: 34px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  border: 1.5px solid var(--line); background: var(--card); color: var(--navy);
+  cursor: pointer; transition: all .12s; display: grid; place-items: center;
+}
+.page-num:hover { border-color: var(--navy); background: var(--blue-light); }
+.page-num.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+.page-ellipsis { font-size: 13px; color: var(--muted); padding: 0 4px; }
