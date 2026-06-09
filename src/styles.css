@@ -559,3 +559,11 @@ button.link.danger { color: #C0392B; }
 .attachment-download {
   font-size: 12px; font-weight: 700; color: var(--blue); flex-shrink: 0;
 }
+
+/* ---- CLIENT INLINE EDIT ---- */
+.client-edit-inline {
+  background: var(--blue-light);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
