@@ -41,7 +41,7 @@ export default function Layout({ children }) {
   {navLink('/', 'Wiki')}
   {navLink('/rates', 'Rates')}
   {navLink('/induction', 'Induction Links')}
-  {navLink('/host-clients', 'Host Clients')}
+  {navLink('/host-clients', 'Sites')}
 </nav>
         </div>
 

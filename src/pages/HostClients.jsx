@@ -123,7 +123,7 @@ export default function HostClients() {
     <div className="host-page">
       <div className="host-header">
         <div>
-          <h1>Host Clients</h1>
+          <h1>Sites</h1>
           <p className="muted">Hover over a site to see its host clients.</p>
         </div>
         {isAdmin && (
