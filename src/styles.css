@@ -615,3 +615,172 @@ button.link.danger { color: #C0392B; }
 .hc-row-actions {
   display: flex; gap: 4px; flex-shrink: 0;
 }
+
+/* ============================================================
+   RESPONSIVE — Tablet & Mobile
+   ============================================================ */
+
+/* ---- HAMBURGER ---- */
+.hamburger {
+  display: none;
+  background: none; border: none;
+  font-size: 22px; color: var(--navy);
+  cursor: pointer; padding: 6px 10px;
+  border-radius: 8px; line-height: 1;
+}
+.hamburger:hover { background: var(--blue-light); }
+
+/* ---- MOBILE MENU DRAWER ---- */
+.mobile-menu {
+  display: none;
+  background: var(--card);
+  border-bottom: 2px solid var(--navy);
+  padding: 16px 20px 20px;
+  box-shadow: 0 8px 24px rgba(30,58,138,.1);
+  position: sticky; top: 64px; z-index: 9;
+}
+.mobile-user {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.mobile-who { font-size: 13px; color: var(--muted); }
+.mobile-nav {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-bottom: 16px;
+}
+.mobile-nav-link {
+  text-align: left; padding: 11px 12px;
+  border-radius: 8px; font-size: 15px; font-weight: 600;
+  color: var(--ink); background: none; border: none; cursor: pointer;
+  width: 100%;
+}
+.mobile-nav-link:hover { background: var(--blue-light); color: var(--navy); }
+.mobile-nav-link.active { background: var(--blue-light); color: var(--navy); }
+.mobile-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- TABLET (max 1024px) ---- */
+@media (max-width: 1024px) {
+  .topbar { padding: 0 16px; }
+  .content { padding: 28px 16px 60px; }
+  .who { max-width: 120px; }
+
+  .hc-row-name { min-width: 140px; }
+
+  .sites-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+/* ---- MOBILE (max 768px) ---- */
+@media (max-width: 768px) {
+  /* Hide desktop nav and right side */
+  .desktop-nav { display: none; }
+  .desktop-right { display: none; }
+
+  /* Show hamburger and mobile menu */
+  .hamburger { display: flex; align-items: center; justify-content: center; }
+  .mobile-menu { display: block; }
+
+  /* Topbar */
+  .topbar { height: 56px; padding: 0 14px; }
+  .brand-logo { height: 34px; }
+  .brand-name { font-size: 14px; }
+  .brand-tagline { display: none; }
+
+  /* Content */
+  .content { padding: 20px 14px 60px; max-width: 100%; }
+
+  /* Auth */
+  .auth-card { padding: 28px 20px; }
+
+  /* Page headers */
+  .list-head { flex-direction: column; gap: 12px; }
+  .list-head h1 { font-size: 1.5rem; }
+  .search { max-width: 100% !important; }
+
+  .host-header { flex-direction: column; gap: 12px; }
+  .induction-header { flex-direction: column; gap: 12px; }
+  .rates-header { flex-direction: column; gap: 8px; }
+
+  /* Article cards */
+  .article-card { padding: 14px 16px; }
+  .article-head { flex-direction: column; gap: 10px; }
+  .article-head h1 { font-size: 1.6rem; }
+
+  /* Rates spreadsheet */
+  .sheet-scroll { font-size: 13px; }
+  .cell-input { padding: 6px 8px; font-size: 13px; }
+  .rates-table-head { flex-direction: column; gap: 8px; align-items: flex-start; }
+
+  /* Host clients compact list */
+  .hc-row { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .hc-row-name { min-width: unset; width: 100%; }
+  .hc-row-sites { width: 100%; }
+  .hc-row-actions { width: 100%; justify-content: flex-end; }
+
+  /* Site tooltip — show below without cutting off */
+  .site-tooltip { position: static; margin-top: 8px; border-radius: 8px; }
+  .site-tooltip::before { display: none; }
+
+  /* Modals — full screen on mobile */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    border-radius: 18px 18px 0 0;
+    max-height: 92vh; overflow-y: auto;
+    width: 100%; max-width: 100%;
+  }
+  .site-detail-modal { max-height: 92vh; }
+  .modal-header { padding: 20px 20px 0; }
+  .modal-body { padding: 14px 20px; }
+  .modal-footer { padding: 12px 20px 24px; }
+  .dept-tabs { padding: 0 20px; }
+  .dept-content { padding: 14px 20px; }
+  .site-section { padding: 12px 20px; }
+
+  /* Client input rows in modals */
+  .client-input-header { display: none; }
+  .client-input-row { grid-template-columns: 1fr; gap: 6px; }
+  .client-input-row select { width: 100%; }
+
+  /* Induction links */
+  .link-card-main { padding: 14px 16px; gap: 12px; }
+  .link-title { font-size: 14px; }
+
+  /* Admin panel table */
+  .user-table-wrap { font-size: 13px; }
+  .user-table th, .user-table td { padding: 10px 10px; }
+
+  /* Editor */
+  .editor-actions { flex-direction: row; justify-content: flex-end; }
+
+  /* Add/edit client rows */
+  .add-client-row { flex-direction: column; align-items: stretch; }
+  .add-client-row input { max-width: 100% !important; }
+
+  /* Rates page */
+  .client-row { flex-wrap: wrap; }
+  .client-select { max-width: 100% !important; }
+
+  /* HC search row */
+  .hc-search-row { flex-direction: column; align-items: stretch; }
+  .hc-search-row input { max-width: 100% !important; }
+
+  /* Sites grid → single column */
+  .sites-grid { grid-template-columns: 1fr; }
+
+  /* Article list */
+  .article-list { gap: 10px; }
+
+  /* Footer */
+  .footer { font-size: 11px; }
+}
+
+/* ---- SMALL MOBILE (max 400px) ---- */
+@media (max-width: 400px) {
+  .brand-name { font-size: 13px; }
+  .content { padding: 16px 12px 60px; }
+  .article-head h1 { font-size: 1.3rem; }
+  .dept-tab { padding: 10px 12px; font-size: 13px; }
+}
