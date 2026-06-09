@@ -37,11 +37,12 @@ export default function Layout({ children }) {
               <span className="brand-tagline">Knowledge Base</span>
             </div>
           </Link>
-          <nav className="topbar-nav">
-            {navLink('/', 'Wiki')}
-            {navLink('/rates', 'Rates')}
-            {navLink('/induction', 'Induction Links')}
-          </nav>
+<nav className="topbar-nav">
+  {navLink('/', 'Wiki')}
+  {navLink('/rates', 'Rates')}
+  {navLink('/induction', 'Induction Links')}
+  {navLink('/host-clients', 'Host Clients')}
+</nav>
         </div>
 
         <div className="topbar-right">

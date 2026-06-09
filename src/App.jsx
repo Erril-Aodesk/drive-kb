@@ -8,6 +8,7 @@ import ArticleEditor from './pages/ArticleEditor'
 import AdminPanel from './pages/AdminPanel'
 import Rates from './pages/Rates'
 import InductionLinks from './pages/InductionLinks'
+import HostClients from './pages/HostClients'
 
 export default function App() {
   const { session, isAdmin, isSuperAdmin, loading } = useAuth()
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/admin" element={isSuperAdmin ? <AdminPanel /> : <Navigate to="/" />} />
         <Route path="/rates" element={<Rates />} />
         <Route path="/induction" element={<InductionLinks />} />
+        <Route path="/host-clients" element={<HostClients />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>
