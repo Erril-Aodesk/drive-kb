@@ -503,7 +503,16 @@ button.link.danger { color: #C0392B; }
 }
 
 /* ---- SITE DETAIL SECTIONS ---- */
-.site-detail-modal { max-width: 560px; max-height: 88vh; overflow-y: auto; }
+.site-detail-modal {
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.site-detail-modal .dept-content {
+  flex-shrink: 0;
+}
 
 .site-section {
   padding: 16px 28px;
@@ -864,9 +873,7 @@ button.link.danger { color: #C0392B; }
 /* ---- SCROLLABLE SITE SELECT LIST ---- */
 .site-select-list {
   list-style: none; padding: 0; margin: 0;
-  max-height: 180px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
-  padding-right: 4px;
 }
 .site-select-list::-webkit-scrollbar { width: 4px; }
 .site-select-list::-webkit-scrollbar-track { background: var(--line); border-radius: 4px; }
