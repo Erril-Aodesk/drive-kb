@@ -836,3 +836,63 @@ button.link.danger { color: #C0392B; }
   font-weight: 600; color: var(--ink);
 }
 .hc-site-depts { display: flex; gap: 3px; }
+
+/* ---- DEPT FILTER ---- */
+.dept-filter-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.dept-filter-btn {
+  padding: 6px 16px; border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+  border: 1.5px solid var(--line);
+  background: var(--card); color: var(--muted);
+  cursor: pointer; transition: all .12s ease;
+}
+.dept-filter-btn:hover { border-color: var(--blue); color: var(--blue); }
+.dept-filter-btn.active { border-color: var(--navy); background: var(--navy); color: #fff; }
+.dept-filter-btn.active.dept-filter-crt  { background: #1d4ed8; border-color: #1d4ed8; }
+.dept-filter-btn.active.dept-filter-mech { background: #15803d; border-color: #15803d; }
+.dept-filter-btn.active.dept-filter-cmc  { background: #854d0e; border-color: #854d0e; }
+
+/* ---- EXPANDED NOTES ---- */
+.notes-expanded {
+  min-height: 260px;
+  resize: vertical;
+}
+
+/* ---- SCROLLABLE SITE SELECT LIST ---- */
+.site-select-list {
+  list-style: none; padding: 0; margin: 0;
+  max-height: 180px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+  padding-right: 4px;
+}
+.site-select-list::-webkit-scrollbar { width: 4px; }
+.site-select-list::-webkit-scrollbar-track { background: var(--line); border-radius: 4px; }
+.site-select-list::-webkit-scrollbar-thumb { background: var(--slate); border-radius: 4px; }
+
+.site-select-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--blue-light);
+  border-radius: 10px; cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: border-color .12s, background .12s;
+  font-weight: 600; color: var(--navy);
+}
+.site-select-item:hover { border-color: var(--blue); }
+.site-select-item.selected {
+  border-color: var(--navy);
+  background: var(--navy); color: #fff;
+}
+.site-select-item.selected .dept-client-dot { background: #fff; }
+
+.site-has-notes {
+  margin-left: auto; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  background: var(--blue); color: #fff;
+  padding: 2px 7px; border-radius: 999px;
+}
+.site-select-item.selected .site-has-notes {
+  background: rgba(255,255,255,.25); color: #fff;
+}

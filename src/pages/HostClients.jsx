@@ -6,28 +6,33 @@ const DEPARTMENTS = ['CRT', 'MECH', 'CMC']
 const EMPTY_NOTES = { CRT: '', MECH: '', CMC: '' }
 
 export default function HostClients() {
-  const [deptFilter, setDeptFilter] = useState('All')
-const [notesExpanded, setNotesExpanded] = useState(false)
   const { isAdmin } = useAuth()
   const [hostClients, setHostClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedHC, setSelectedHC] = useState(null)
   const [activeTab, setActiveTab] = useState('CRT')
   const [search, setSearch] = useState('')
+  const [deptFilter, setDeptFilter] = useState('All')
 
-  const [notes, setNotes] = useState(EMPTY_NOTES)
+  // Per-site notes
+  const [siteNotes, setSiteNotes] = useState({})
+  const [activeSite, setActiveSite] = useState(null)
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
+  const [notesExpanded, setNotesExpanded] = useState(false)
 
+  // Attachments
   const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
 
+  // Add modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [addName, setAddName] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState(null)
 
+  // Edit modal
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingHC, setEditingHC] = useState(null)
   const [editName, setEditName] = useState('')
@@ -54,28 +59,28 @@ const [notesExpanded, setNotesExpanded] = useState(false)
     setAttachments(data ?? [])
   }
 
-  async function loadNotes(hcId) {
+  async function loadSiteNotes(hcId) {
     const { data } = await supabase
-      .from('hc_dept_notes')
-      .select('department, notes')
+      .from('hc_site_notes')
+      .select('site_name, notes')
       .eq('host_client_id', hcId)
-    const mapped = { CRT: '', MECH: '', CMC: '' }
-    if (data) data.forEach(row => { mapped[row.department] = row.notes })
-    setNotes(mapped)
+    const mapped = {}
+    if (data) data.forEach(row => { mapped[row.site_name] = row.notes })
+    setSiteNotes(mapped)
   }
 
   useEffect(() => { loadAll() }, [])
 
-const filtered = hostClients.filter(hc => {
-  const q = search.toLowerCase()
-  const searchOk = !search.trim() || (
-    hc.name.toLowerCase().includes(q) ||
-    (hc.hc_sites ?? []).some(s => s.site_name.toLowerCase().includes(q))
-  )
-  const deptOk = deptFilter === 'All' ||
-    (hc.hc_sites ?? []).some(s => s.department === deptFilter)
-  return searchOk && deptOk
-})
+  const filtered = hostClients.filter(hc => {
+    const q = search.toLowerCase()
+    const searchOk = !search.trim() || (
+      hc.name.toLowerCase().includes(q) ||
+      (hc.hc_sites ?? []).some(s => s.site_name.toLowerCase().includes(q))
+    )
+    const deptOk = deptFilter === 'All' ||
+      (hc.hc_sites ?? []).some(s => s.department === deptFilter)
+    return searchOk && deptOk
+  })
 
   function getMatchedSite(hc) {
     if (!search.trim()) return null
@@ -85,7 +90,6 @@ const filtered = hostClients.filter(hc => {
     return match ? match.site_name : null
   }
 
-  // Get unique sites with their departments for hover/display
   function getUniqueSites(hcSites) {
     const map = {}
     ;(hcSites ?? []).forEach(s => {
@@ -98,24 +102,40 @@ const filtered = hostClients.filter(hc => {
   async function openHC(hc) {
     setSelectedHC(hc)
     setActiveTab('CRT')
+    setActiveSite(null)
     setNotesSaved(false)
-    await Promise.all([loadNotes(hc.id), loadAttachments(hc.id)])
+    setNotesExpanded(false)
+    await Promise.all([loadSiteNotes(hc.id), loadAttachments(hc.id)])
   }
 
   function closeHC() {
     setSelectedHC(null)
     setAttachments([])
-    setNotes(EMPTY_NOTES)
+    setSiteNotes({})
+    setActiveSite(null)
     setNotesSaved(false)
+    setNotesExpanded(false)
+  }
+
+  function selectSite(siteName) {
+    setActiveSite(prev => prev === siteName ? null : siteName)
+    setNotesSaved(false)
+    setNotesExpanded(false)
   }
 
   async function saveNotes() {
+    if (!activeSite) return
     setSavingNotes(true)
     await supabase
-      .from('hc_dept_notes')
+      .from('hc_site_notes')
       .upsert(
-        { host_client_id: selectedHC.id, department: activeTab, notes: notes[activeTab], updated_at: new Date().toISOString() },
-        { onConflict: 'host_client_id,department' }
+        {
+          host_client_id: selectedHC.id,
+          site_name: activeSite,
+          notes: siteNotes[activeSite] ?? '',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'host_client_id,site_name' }
       )
     setSavingNotes(false)
     setNotesSaved(true)
@@ -161,13 +181,8 @@ const filtered = hostClients.filter(hc => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
-  function openAdd() {
-    setAddName(''); setAddError(null); setShowAddModal(true)
-  }
-
-  function closeAdd() {
-    setShowAddModal(false); setAddName(''); setAddError(null)
-  }
+  function openAdd() { setAddName(''); setAddError(null); setShowAddModal(true) }
+  function closeAdd() { setShowAddModal(false); setAddName(''); setAddError(null) }
 
   async function saveAdd() {
     if (!addName.trim()) return setAddError('Host client name is required.')
@@ -175,22 +190,20 @@ const filtered = hostClients.filter(hc => {
     const { error } = await supabase.from('host_clients').insert({ name: addName.trim() })
     setAddSaving(false)
     if (error) return setAddError(error.message)
-    closeAdd()
-    await loadAll()
+    closeAdd(); await loadAll()
   }
 
   function openEdit(hc, e) {
     e.stopPropagation()
     setEditingHC(hc)
     setEditName(hc.name)
-    // Group existing sites by site_name, collect all departments
     const grouped = {}
     ;(hc.hc_sites ?? []).forEach(s => {
       if (!grouped[s.site_name]) grouped[s.site_name] = []
       if (!grouped[s.site_name].includes(s.department)) grouped[s.site_name].push(s.department)
     })
-    const groupedArr = Object.entries(grouped).map(([site_name, departments]) => ({ site_name, departments }))
-    setEditSites(groupedArr.length > 0 ? groupedArr : [{ site_name: '', departments: ['CRT'] }])
+    const arr = Object.entries(grouped).map(([site_name, departments]) => ({ site_name, departments }))
+    setEditSites(arr.length > 0 ? arr : [{ site_name: '', departments: ['CRT'] }])
     setEditError(null)
     setShowEditModal(true)
   }
@@ -245,8 +258,7 @@ const filtered = hostClients.filter(hc => {
           .eq('id', editingHC.id).single()
         setSelectedHC(data)
       }
-      closeEdit()
-      await loadAll()
+      closeEdit(); await loadAll()
     } catch (e) {
       setEditError(e.message)
     } finally {
@@ -294,16 +306,16 @@ const filtered = hostClients.filter(hc => {
       </div>
 
       <div className="dept-filter-row">
-  {['All', ...DEPARTMENTS].map(dept => (
-    <button
-      key={dept}
-      className={'dept-filter-btn' + (deptFilter === dept ? ' active dept-filter-' + dept.toLowerCase() : '')}
-      onClick={() => setDeptFilter(dept)}
-    >
-      {dept}
-    </button>
-  ))}
-</div>
+        {['All', ...DEPARTMENTS].map(dept => (
+          <button
+            key={dept}
+            className={'dept-filter-btn' + (deptFilter === dept ? ' active dept-filter-' + dept.toLowerCase() : '')}
+            onClick={() => setDeptFilter(dept)}
+          >
+            {dept}
+          </button>
+        ))}
+      </div>
 
       {loading ? (
         <p className="muted">Loading...</p>
@@ -319,6 +331,9 @@ const filtered = hostClients.filter(hc => {
           {filtered.map(hc => {
             const matchedSite = getMatchedSite(hc)
             const uniqueSites = getUniqueSites(hc.hc_sites)
+            const displaySites = deptFilter === 'All'
+              ? uniqueSites
+              : uniqueSites.filter(s => s.depts.includes(deptFilter))
             return (
               <div
                 key={hc.id}
@@ -333,35 +348,29 @@ const filtered = hostClients.filter(hc => {
                   )}
                 </div>
                 <div className="hc-row-sites">
-  {(() => {
-    const displaySites = deptFilter === 'All'
-      ? uniqueSites
-      : uniqueSites.filter(s => s.depts.includes(deptFilter))
-    return displaySites.length > 0 ? (
-      displaySites.map(s => (
-        <span key={s.name} className="hc-site-pill">
-          {s.name}
-          <span className="hc-site-depts">
-            {s.depts
-              .filter(d => deptFilter === 'All' || d === deptFilter)
-              .map(d => (
-                <span key={d} className={'dept-pill dept-' + d.toLowerCase()}>{d}</span>
-              ))}
-          </span>
-        </span>
-      ))
-    ) : (
-      <span className="muted" style={{ fontSize: 12 }}>No sites</span>
-    )
-  })()}
-</div>
+                  {displaySites.length > 0 ? (
+                    displaySites.map(s => (
+                      <span key={s.name} className="hc-site-pill">
+                        {s.name}
+                        <span className="hc-site-depts">
+                          {s.depts
+                            .filter(d => deptFilter === 'All' || d === deptFilter)
+                            .map(d => (
+                              <span key={d} className={'dept-pill dept-' + d.toLowerCase()}>{d}</span>
+                            ))}
+                        </span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="muted" style={{ fontSize: 12 }}>No sites</span>
+                  )}
+                </div>
                 {isAdmin && (
                   <div className="hc-row-actions" onClick={e => e.stopPropagation()}>
                     <button className="link" onClick={e => openEdit(hc, e)}>Edit</button>
                     <button className="link danger" onClick={e => deleteHC(hc.id, e)}>Delete</button>
                   </div>
                 )}
-
               </div>
             )
           })}
@@ -382,63 +391,86 @@ const filtered = hostClients.filter(hc => {
               <button className="modal-close" onClick={closeHC}>X</button>
             </div>
 
+            {/* Dept tabs */}
             <div className="dept-tabs">
               {DEPARTMENTS.map(dept => (
                 <button
                   key={dept}
                   className={'dept-tab' + (activeTab === dept ? ' active' : '')}
-                  onClick={() => { setActiveTab(dept); setNotesSaved(false); setNotesExpanded(false) }}
+                  onClick={() => {
+                    setActiveTab(dept)
+                    setActiveSite(null)
+                    setNotesSaved(false)
+                    setNotesExpanded(false)
+                  }}
                 >
                   {dept}
-                  {notes[dept] && <span className="dept-tab-dot" />}
                 </button>
               ))}
             </div>
 
+            {/* Scrollable sites list — click to select */}
             <div className="dept-content">
               {tabSites.length === 0 ? (
                 <p className="muted" style={{ textAlign: 'center', fontSize: 13, padding: '16px 0' }}>
                   No sites under {activeTab}.
                 </p>
               ) : (
-                <ul className="dept-client-list">
+                <ul className="site-select-list">
                   {tabSites.map(s => (
-                    <li key={s.name} className="dept-client-item">
+                    <li
+                      key={s.name}
+                      className={'site-select-item' + (activeSite === s.name ? ' selected' : '')}
+                      onClick={() => selectSite(s.name)}
+                    >
                       <span className="dept-client-dot" />
                       <span>{s.name}</span>
+                      {siteNotes[s.name] && (
+                        <span className="site-has-notes">has notes</span>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-<div className="site-section">
-  <div className="site-section-head">
-    <span className="site-section-title">Notes ({activeTab})</span>
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <button
-        className="outline sm"
-        onClick={() => setNotesExpanded(n => !n)}
-      >
-        {notesExpanded ? 'Collapse' : 'Expand'}
-      </button>
-      {isAdmin && (
-        <button className="primary sm" onClick={saveNotes} disabled={savingNotes}>
-          {savingNotes ? 'Saving...' : notesSaved ? 'Saved' : 'Save notes'}
-        </button>
-      )}
-    </div>
-  </div>
-  <textarea
-    className={'notes-area' + (notesExpanded ? ' notes-expanded' : '')}
-    placeholder={'Add notes for ' + activeTab + ' department...'}
-    value={notes[activeTab]}
-    onChange={e => setNotes(n => ({ ...n, [activeTab]: e.target.value }))}
-    readOnly={!isAdmin}
-    rows={notesExpanded ? 16 : 4}
-  />
-</div>
+            {/* Per-site notes */}
+            <div className="site-section">
+              <div className="site-section-head">
+                <span className="site-section-title">
+                  {activeSite ? 'Notes — ' + activeSite : 'Notes'}
+                </span>
+                {activeSite && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button className="outline sm" onClick={() => setNotesExpanded(n => !n)}>
+                      {notesExpanded ? 'Collapse' : 'Expand'}
+                    </button>
+                    {isAdmin && (
+                      <button className="primary sm" onClick={saveNotes} disabled={savingNotes}>
+                        {savingNotes ? 'Saving...' : notesSaved ? 'Saved' : 'Save notes'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
+              {!activeSite ? (
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Select a site above to view or add notes.
+                </p>
+              ) : (
+                <textarea
+                  className={'notes-area' + (notesExpanded ? ' notes-expanded' : '')}
+                  placeholder={'Add notes for ' + activeSite + '...'}
+                  value={siteNotes[activeSite] ?? ''}
+                  onChange={e => setSiteNotes(n => ({ ...n, [activeSite]: e.target.value }))}
+                  readOnly={!isAdmin}
+                  rows={notesExpanded ? 16 : 4}
+                />
+              )}
+            </div>
+
+            {/* Attachments */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">Attachments</span>
@@ -525,7 +557,6 @@ const filtered = hostClients.filter(hc => {
               <h2>Edit Host Client</h2>
               <button className="modal-close" onClick={closeEdit}>X</button>
             </div>
-
             <div className="modal-body scrollable-body">
               <label className="field-label">Host Client Name</label>
               <input
@@ -533,12 +564,10 @@ const filtered = hostClients.filter(hc => {
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
               />
-
               <label className="field-label">Mining Sites</label>
               <p className="muted" style={{ fontSize: 12, marginBottom: 12, marginTop: -6 }}>
                 Type the site name and tick which departments apply.
               </p>
-
               {editSites.map((row, i) => (
                 <div key={i} className="edit-site-row">
                   <div className="edit-site-top">
@@ -570,7 +599,6 @@ const filtered = hostClients.filter(hc => {
                   </div>
                 </div>
               ))}
-
               <button
                 className="link"
                 onClick={() => setEditSites([...editSites, { site_name: '', departments: ['CRT'] }])}
@@ -578,10 +606,8 @@ const filtered = hostClients.filter(hc => {
               >
                 + Add another site
               </button>
-
               {editError && <p className="auth-msg" style={{ marginTop: 12 }}>{editError}</p>}
             </div>
-
             <div className="modal-footer">
               <button className="link" onClick={closeEdit}>Cancel</button>
               <button className="primary" onClick={saveEdit} disabled={editSaving}>
