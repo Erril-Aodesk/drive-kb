@@ -6,6 +6,8 @@ const DEPARTMENTS = ['CRT', 'MECH', 'CMC']
 const EMPTY_NOTES = { CRT: '', MECH: '', CMC: '' }
 
 export default function HostClients() {
+  const [deptFilter, setDeptFilter] = useState('All')
+const [notesExpanded, setNotesExpanded] = useState(false)
   const { isAdmin } = useAuth()
   const [hostClients, setHostClients] = useState([])
   const [loading, setLoading] = useState(true)
@@ -65,14 +67,16 @@ export default function HostClients() {
 
   useEffect(() => { loadAll() }, [])
 
-  const filtered = hostClients.filter(hc => {
-    if (!search.trim()) return true
-    const q = search.toLowerCase()
-    return (
-      hc.name.toLowerCase().includes(q) ||
-      (hc.hc_sites ?? []).some(s => s.site_name.toLowerCase().includes(q))
-    )
-  })
+const filtered = hostClients.filter(hc => {
+  const q = search.toLowerCase()
+  const searchOk = !search.trim() || (
+    hc.name.toLowerCase().includes(q) ||
+    (hc.hc_sites ?? []).some(s => s.site_name.toLowerCase().includes(q))
+  )
+  const deptOk = deptFilter === 'All' ||
+    (hc.hc_sites ?? []).some(s => s.department === deptFilter)
+  return searchOk && deptOk
+})
 
   function getMatchedSite(hc) {
     if (!search.trim()) return null
@@ -290,6 +294,18 @@ export default function HostClients() {
         )}
       </div>
 
+      <div className="dept-filter-row">
+  {['All', ...DEPARTMENTS].map(dept => (
+    <button
+      key={dept}
+      className={'dept-filter-btn' + (deptFilter === dept ? ' active dept-filter-' + dept.toLowerCase() : '')}
+      onClick={() => setDeptFilter(dept)}
+    >
+      {dept}
+    </button>
+  ))}
+</div>
+
       {loading ? (
         <p className="muted">Loading...</p>
       ) : filtered.length === 0 ? (
@@ -320,21 +336,28 @@ export default function HostClients() {
                   )}
                 </div>
                 <div className="hc-row-sites">
-                  {uniqueSites.length > 0 ? (
-                    uniqueSites.map(s => (
-                      <span key={s.name} className="hc-site-pill">
-                        {s.name}
-                        <span className="hc-site-depts">
-                          {s.depts.map(d => (
-                            <span key={d} className={'dept-pill dept-' + d.toLowerCase()}>{d}</span>
-                          ))}
-                        </span>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="muted" style={{ fontSize: 12 }}>No sites</span>
-                  )}
-                </div>
+  {(() => {
+    const displaySites = deptFilter === 'All'
+      ? uniqueSites
+      : uniqueSites.filter(s => s.depts.includes(deptFilter))
+    return displaySites.length > 0 ? (
+      displaySites.map(s => (
+        <span key={s.name} className="hc-site-pill">
+          {s.name}
+          <span className="hc-site-depts">
+            {s.depts
+              .filter(d => deptFilter === 'All' || d === deptFilter)
+              .map(d => (
+                <span key={d} className={'dept-pill dept-' + d.toLowerCase()}>{d}</span>
+              ))}
+          </span>
+        </span>
+      ))
+    ) : (
+      <span className="muted" style={{ fontSize: 12 }}>No sites</span>
+    )
+  })()}
+</div>
                 {isAdmin && (
                   <div className="hc-row-actions" onClick={e => e.stopPropagation()}>
                     <button className="link" onClick={e => openEdit(hc, e)}>Edit</button>
@@ -382,7 +405,7 @@ export default function HostClients() {
                 <button
                   key={dept}
                   className={'dept-tab' + (activeTab === dept ? ' active' : '')}
-                  onClick={() => { setActiveTab(dept); setNotesSaved(false) }}
+                  onClick={() => { setActiveTab(dept); setNotesSaved(false); setNotesExpanded(false) }}
                 >
                   {dept}
                   {notes[dept] && <span className="dept-tab-dot" />}
@@ -407,24 +430,32 @@ export default function HostClients() {
               )}
             </div>
 
-            <div className="site-section">
-              <div className="site-section-head">
-                <span className="site-section-title">Notes ({activeTab})</span>
-                {isAdmin && (
-                  <button className="primary sm" onClick={saveNotes} disabled={savingNotes}>
-                    {savingNotes ? 'Saving...' : notesSaved ? 'Saved' : 'Save notes'}
-                  </button>
-                )}
-              </div>
-              <textarea
-                className="notes-area"
-                placeholder={'Add notes for ' + activeTab + ' department...'}
-                value={notes[activeTab]}
-                onChange={e => setNotes(n => ({ ...n, [activeTab]: e.target.value }))}
-                readOnly={!isAdmin}
-                rows={4}
-              />
-            </div>
+<div className="site-section">
+  <div className="site-section-head">
+    <span className="site-section-title">Notes ({activeTab})</span>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <button
+        className="outline sm"
+        onClick={() => setNotesExpanded(n => !n)}
+      >
+        {notesExpanded ? 'Collapse' : 'Expand'}
+      </button>
+      {isAdmin && (
+        <button className="primary sm" onClick={saveNotes} disabled={savingNotes}>
+          {savingNotes ? 'Saving...' : notesSaved ? 'Saved' : 'Save notes'}
+        </button>
+      )}
+    </div>
+  </div>
+  <textarea
+    className={'notes-area' + (notesExpanded ? ' notes-expanded' : '')}
+    placeholder={'Add notes for ' + activeTab + ' department...'}
+    value={notes[activeTab]}
+    onChange={e => setNotes(n => ({ ...n, [activeTab]: e.target.value }))}
+    readOnly={!isAdmin}
+    rows={notesExpanded ? 16 : 4}
+  />
+</div>
 
             <div className="site-section">
               <div className="site-section-head">
