@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { read, utils } from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -14,9 +15,12 @@ export default function Rates() {
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
+  const [importMsg, setImportMsg] = useState(null)
 
   const [newClient, setNewClient] = useState('')
   const [addingClient, setAddingClient] = useState(false)
+
+  const fileRef = useRef()
 
   async function loadClients() {
     const { data } = await supabase.from('clients').select('*').order('sort_order').order('name')
@@ -113,6 +117,64 @@ export default function Rates() {
     setTimeout(() => setSavedMsg(false), 3000)
   }
 
+  // Import Excel
+  function handleImport(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setImportMsg(null)
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const wb = read(evt.target.result, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rawRows = utils.sheet_to_json(ws, { defval: '' })
+
+        if (rawRows.length === 0) {
+          setImportMsg('No data found in the file.')
+          return
+        }
+
+        // Normalize column headers (case-insensitive)
+        const parsed = rawRows.map(row => {
+          const lower = {}
+          Object.keys(row).forEach(k => { lower[k.toLowerCase().trim()] = row[k] })
+
+          const position = String(
+            lower['role'] || lower['position'] || lower['title'] || lower['name'] || ''
+          ).trim()
+
+          const rawRate = lower['rate'] || lower['amount'] || lower['pay'] || lower['wage'] || ''
+          const rate = parseFloat(String(rawRate).replace(/[^0-9.]/g, '')) || ''
+
+          const rawShift = String(
+            lower['shift'] || lower['unit'] || lower['type'] || lower['period'] || ''
+          ).trim()
+
+          // Match to a known shift or default
+          const shift = SHIFTS.find(s => s.toLowerCase() === rawShift.toLowerCase()) || 'Day Shift'
+
+          return { _id: crypto.randomUUID(), _new: true, position, shift, rate: rate.toString() }
+        }).filter(r => r.position && r.rate)
+
+        if (parsed.length === 0) {
+          setImportMsg('Could not read any valid rows. Make sure your file has Role and Rate columns.')
+          return
+        }
+
+        setRows(prev => [...prev, ...parsed])
+        setDirty(true)
+        setImportMsg(parsed.length + ' rows imported. Review then click Save changes.')
+        setTimeout(() => setImportMsg(null), 6000)
+      } catch (err) {
+        setImportMsg('Error reading file: ' + err.message)
+      }
+    }
+    reader.readAsArrayBuffer(file)
+    // Reset so same file can be re-imported
+    e.target.value = ''
+  }
+
   const selectedClient = clients.find(c => c.id === selectedId)
 
   return (
@@ -128,7 +190,7 @@ export default function Rates() {
           value={selectedId}
           onChange={e => setSelectedId(e.target.value)}
         >
-          <option value="">— Select a client —</option>
+          <option value="">Select a client...</option>
           {clients.map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -143,14 +205,14 @@ export default function Rates() {
       {isAdmin && (
         <div className="add-client-row">
           <input
-            placeholder="New client name…"
+            placeholder="New client name..."
             value={newClient}
             onChange={e => setNewClient(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addClient()}
             style={{ maxWidth: 280, margin: 0 }}
           />
           <button className="outline sm" onClick={addClient} disabled={addingClient || !newClient.trim()}>
-            {addingClient ? '…' : '+ Add client'}
+            {addingClient ? '...' : '+ Add client'}
           </button>
         </div>
       )}
@@ -160,20 +222,31 @@ export default function Rates() {
           <div className="rates-table-head">
             <h2>{selectedClient?.name}</h2>
             {isAdmin && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {savedMsg && <span className="saved-msg">✓ Saved</span>}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {savedMsg && <span className="saved-msg">Saved</span>}
+                {importMsg && <span className="import-msg">{importMsg}</span>}
                 {dirty && (
                   <button className="primary sm" onClick={saveAll} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save changes'}
+                    {saving ? 'Saving...' : 'Save changes'}
                   </button>
                 )}
                 <button className="outline sm" onClick={addRow}>+ Add row</button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  style={{ display: 'none' }}
+                  onChange={handleImport}
+                />
+                <button className="outline sm" onClick={() => fileRef.current.click()}>
+                  Import Excel
+                </button>
               </div>
             )}
           </div>
 
           {loading ? (
-            <p className="muted">Loading…</p>
+            <p className="muted">Loading...</p>
           ) : (
             <div className="sheet-scroll">
               <table className="sheet-table">
@@ -226,7 +299,7 @@ export default function Rates() {
                       </td>
                       {isAdmin && (
                         <td>
-                          <button className="link danger" onClick={() => deleteRow(row)}>✕</button>
+                          <button className="link danger" onClick={() => deleteRow(row)}>X</button>
                         </td>
                       )}
                     </tr>
@@ -243,6 +316,13 @@ export default function Rates() {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/* Excel format hint */}
+          {isAdmin && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+              Excel import expects columns: <strong>Role</strong>, <strong>Shift</strong>, <strong>Rate</strong>. Header row is required.
+            </p>
           )}
         </div>
       )}

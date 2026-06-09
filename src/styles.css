@@ -784,3 +784,10 @@ button.link.danger { color: #C0392B; }
   .article-head h1 { font-size: 1.3rem; }
   .dept-tab { padding: 10px 12px; font-size: 13px; }
 }
+
+/* ---- IMPORT MESSAGE ---- */
+.import-msg {
+  font-size: 12px; font-weight: 600; color: var(--admin);
+  background: #dcfce7; border: 1px solid #86efac;
+  padding: 5px 10px; border-radius: 6px; max-width: 260px;
+}
