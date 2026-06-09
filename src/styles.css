@@ -791,3 +791,48 @@ button.link.danger { color: #C0392B; }
   background: #dcfce7; border: 1px solid #86efac;
   padding: 5px 10px; border-radius: 6px; max-width: 260px;
 }
+
+/* ---- SCROLLABLE MODAL BODY ---- */
+.scrollable-body {
+  overflow-y: auto;
+  max-height: 55vh;
+}
+
+/* ---- EDIT SITE ROWS ---- */
+.edit-site-row {
+  background: var(--slate-light);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.edit-site-top {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+
+/* ---- DEPT CHECKBOXES ---- */
+.dept-checkboxes {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.dept-check-label {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 999px; cursor: pointer;
+  font-size: 12px; font-weight: 700;
+  border: 1.5px solid var(--line);
+  background: var(--card); color: var(--muted);
+  transition: all .12s ease;
+  user-select: none;
+}
+.dept-check-label input { display: none; }
+.dept-check-label.checked { border-color: var(--navy); background: var(--navy); color: #fff; }
+.dept-check-label:hover { border-color: var(--blue); color: var(--blue); }
+.dept-check-label.checked:hover { background: var(--navy-dark); }
+
+/* ---- HC SITE PILLS IN LIST ---- */
+.hc-site-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--slate-light); border: 1px solid var(--line);
+  border-radius: 6px; padding: 2px 8px; font-size: 12px;
+  font-weight: 600; color: var(--ink);
+}
+.hc-site-depts { display: flex; gap: 3px; }

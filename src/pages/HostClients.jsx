@@ -14,27 +14,23 @@ export default function HostClients() {
   const [activeTab, setActiveTab] = useState('CRT')
   const [search, setSearch] = useState('')
 
-  // Per-department notes
   const [notes, setNotes] = useState(EMPTY_NOTES)
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
 
-  // Attachments
   const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
 
-  // Add modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [addName, setAddName] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState(null)
 
-  // Edit modal
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingHC, setEditingHC] = useState(null)
   const [editName, setEditName] = useState('')
-  const [editSites, setEditSites] = useState([{ site_name: '', department: 'CRT' }])
+  const [editSites, setEditSites] = useState([{ site_name: '', departments: ['CRT'] }])
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState(null)
 
@@ -63,9 +59,7 @@ export default function HostClients() {
       .select('department, notes')
       .eq('host_client_id', hcId)
     const mapped = { CRT: '', MECH: '', CMC: '' }
-    if (data) {
-      data.forEach(row => { mapped[row.department] = row.notes })
-    }
+    if (data) data.forEach(row => { mapped[row.department] = row.notes })
     setNotes(mapped)
   }
 
@@ -88,14 +82,21 @@ export default function HostClients() {
     return match ? match.site_name : null
   }
 
+  // Get unique sites with their departments for hover/display
+  function getUniqueSites(hcSites) {
+    const map = {}
+    ;(hcSites ?? []).forEach(s => {
+      if (!map[s.site_name]) map[s.site_name] = []
+      if (!map[s.site_name].includes(s.department)) map[s.site_name].push(s.department)
+    })
+    return Object.entries(map).map(([name, depts]) => ({ name, depts }))
+  }
+
   async function openHC(hc) {
     setSelectedHC(hc)
     setActiveTab('CRT')
     setNotesSaved(false)
-    await Promise.all([
-      loadNotes(hc.id),
-      loadAttachments(hc.id),
-    ])
+    await Promise.all([loadNotes(hc.id), loadAttachments(hc.id)])
   }
 
   function closeHC() {
@@ -179,43 +180,61 @@ export default function HostClients() {
     e.stopPropagation()
     setEditingHC(hc)
     setEditName(hc.name)
-    setEditSites(
-      hc.hc_sites.length > 0
-        ? hc.hc_sites.map(s => ({ site_name: s.site_name, department: s.department }))
-        : [{ site_name: '', department: 'CRT' }]
-    )
+    // Group existing sites by site_name, collect all departments
+    const grouped = {}
+    ;(hc.hc_sites ?? []).forEach(s => {
+      if (!grouped[s.site_name]) grouped[s.site_name] = []
+      if (!grouped[s.site_name].includes(s.department)) grouped[s.site_name].push(s.department)
+    })
+    const groupedArr = Object.entries(grouped).map(([site_name, departments]) => ({ site_name, departments }))
+    setEditSites(groupedArr.length > 0 ? groupedArr : [{ site_name: '', departments: ['CRT'] }])
     setEditError(null)
     setShowEditModal(true)
   }
 
   function closeEdit() {
     setShowEditModal(false); setEditingHC(null)
-    setEditName(''); setEditSites([{ site_name: '', department: 'CRT' }]); setEditError(null)
+    setEditName(''); setEditSites([{ site_name: '', departments: ['CRT'] }]); setEditError(null)
   }
 
-  function updateEditSite(index, field, value) {
+  function updateEditSiteName(index, value) {
     setEditSites(prev => {
       const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
+      updated[index] = { ...updated[index], site_name: value }
+      return updated
+    })
+  }
+
+  function toggleDept(index, dept) {
+    setEditSites(prev => {
+      const updated = [...prev]
+      const depts = updated[index].departments
+      updated[index] = {
+        ...updated[index],
+        departments: depts.includes(dept)
+          ? depts.filter(d => d !== dept)
+          : [...depts, dept],
+      }
       return updated
     })
   }
 
   async function saveEdit() {
     if (!editName.trim()) return setEditError('Host client name is required.')
-    const validSites = editSites.filter(s => s.site_name.trim())
+    const validSites = editSites.filter(s => s.site_name.trim() && s.departments.length > 0)
     setEditSaving(true); setEditError(null)
     try {
       await supabase.from('host_clients').update({ name: editName.trim() }).eq('id', editingHC.id)
       await supabase.from('hc_sites').delete().eq('host_client_id', editingHC.id)
       if (validSites.length > 0) {
-        await supabase.from('hc_sites').insert(
-          validSites.map(s => ({
+        const rows = validSites.flatMap(s =>
+          s.departments.map(dept => ({
             host_client_id: editingHC.id,
             site_name: s.site_name.trim(),
-            department: s.department,
+            department: dept,
           }))
         )
+        await supabase.from('hc_sites').insert(rows)
       }
       if (selectedHC && selectedHC.id === editingHC.id) {
         const { data } = await supabase
@@ -241,7 +260,7 @@ export default function HostClients() {
   }
 
   const tabSites = selectedHC
-    ? (selectedHC.hc_sites ?? []).filter(s => s.department === activeTab)
+    ? getUniqueSites(selectedHC.hc_sites).filter(s => s.depts.includes(activeTab))
     : []
 
   return (
@@ -281,61 +300,67 @@ export default function HostClients() {
           )}
         </div>
       ) : (
-<div className="hc-list">
-  {filtered.map(hc => {
-    const matchedSite = getMatchedSite(hc)
-    return (
-      <div
-        key={hc.id}
-        className={'hc-row' + (hoveredId === hc.id ? ' hovered' : '')}
-        onMouseEnter={() => setHoveredId(hc.id)}
-        onMouseLeave={() => setHoveredId(null)}
-        onClick={() => openHC(hc)}
-      >
-        <div className="hc-row-icon">&#127968;</div>
-        <div className="hc-row-name">
-          <span className="hc-name">{hc.name}</span>
-          {matchedSite && (
-            <span className="hc-match-label">via: {matchedSite}</span>
-          )}
-        </div>
-        <div className="hc-row-sites">
-          {hc.hc_sites.length > 0 ? (
-            hc.hc_sites.map(s => (
-              <span key={s.id} className={'dept-pill dept-' + s.department.toLowerCase()}>
-                {s.site_name}
-              </span>
-            ))
-          ) : (
-            <span className="muted" style={{ fontSize: 12 }}>No sites</span>
-          )}
-        </div>
-        {isAdmin && (
-          <div className="hc-row-actions" onClick={e => e.stopPropagation()}>
-            <button className="link" onClick={e => openEdit(hc, e)}>Edit</button>
-            <button className="link danger" onClick={e => deleteHC(hc.id, e)}>Delete</button>
-          </div>
-        )}
+        <div className="hc-list">
+          {filtered.map(hc => {
+            const matchedSite = getMatchedSite(hc)
+            const uniqueSites = getUniqueSites(hc.hc_sites)
+            return (
+              <div
+                key={hc.id}
+                className={'hc-row' + (hoveredId === hc.id ? ' hovered' : '')}
+                onMouseEnter={() => setHoveredId(hc.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                onClick={() => openHC(hc)}
+              >
+                <div className="hc-row-icon">&#127968;</div>
+                <div className="hc-row-name">
+                  <span className="hc-name">{hc.name}</span>
+                  {matchedSite && (
+                    <span className="hc-match-label">via: {matchedSite}</span>
+                  )}
+                </div>
+                <div className="hc-row-sites">
+                  {uniqueSites.length > 0 ? (
+                    uniqueSites.map(s => (
+                      <span key={s.name} className="hc-site-pill">
+                        {s.name}
+                        <span className="hc-site-depts">
+                          {s.depts.map(d => (
+                            <span key={d} className={'dept-pill dept-' + d.toLowerCase()}>{d}</span>
+                          ))}
+                        </span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="muted" style={{ fontSize: 12 }}>No sites</span>
+                  )}
+                </div>
+                {isAdmin && (
+                  <div className="hc-row-actions" onClick={e => e.stopPropagation()}>
+                    <button className="link" onClick={e => openEdit(hc, e)}>Edit</button>
+                    <button className="link danger" onClick={e => deleteHC(hc.id, e)}>Delete</button>
+                  </div>
+                )}
 
-        {hoveredId === hc.id && hc.hc_sites.length > 0 && (
-          <div className="site-tooltip">
-            <p className="tooltip-label">Mining Sites</p>
-            <ul className="tooltip-list">
-              {hc.hc_sites.map(s => (
-                <li key={s.id}>
-                  <span className={'dept-pill dept-' + s.department.toLowerCase()} style={{ marginRight: 6 }}>
-                    {s.department}
-                  </span>
-                  {s.site_name}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    )
-  })}
-</div>
+                {hoveredId === hc.id && uniqueSites.length > 0 && (
+                  <div className="site-tooltip">
+                    <p className="tooltip-label">Mining Sites</p>
+                    <ul className="tooltip-list">
+                      {uniqueSites.map(s => (
+                        <li key={s.name}>
+                          <span style={{ marginRight: 6 }}>{s.name}</span>
+                          {s.depts.map(d => (
+                            <span key={d} className={'dept-pill dept-' + d.toLowerCase()} style={{ marginRight: 3 }}>{d}</span>
+                          ))}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {/* Detail popup */}
@@ -346,7 +371,7 @@ export default function HostClients() {
               <div>
                 <h2>{selectedHC.name}</h2>
                 <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-                  {selectedHC.hc_sites.length} mining site{selectedHC.hc_sites.length !== 1 ? 's' : ''}
+                  {getUniqueSites(selectedHC.hc_sites).length} mining site{getUniqueSites(selectedHC.hc_sites).length !== 1 ? 's' : ''}
                 </p>
               </div>
               <button className="modal-close" onClick={closeHC}>X</button>
@@ -373,16 +398,15 @@ export default function HostClients() {
               ) : (
                 <ul className="dept-client-list">
                   {tabSites.map(s => (
-                    <li key={s.id} className="dept-client-item">
+                    <li key={s.name} className="dept-client-item">
                       <span className="dept-client-dot" />
-                      <span>{s.site_name}</span>
+                      <span>{s.name}</span>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-            {/* Notes — unique per department */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">Notes ({activeTab})</span>
@@ -402,7 +426,6 @@ export default function HostClients() {
               />
             </div>
 
-            {/* Attachments */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">Attachments</span>
@@ -489,55 +512,63 @@ export default function HostClients() {
               <h2>Edit Host Client</h2>
               <button className="modal-close" onClick={closeEdit}>X</button>
             </div>
-            <div className="modal-body">
+
+            <div className="modal-body scrollable-body">
               <label className="field-label">Host Client Name</label>
               <input
                 placeholder="e.g. Rio Tinto"
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
               />
+
               <label className="field-label">Mining Sites</label>
               <p className="muted" style={{ fontSize: 12, marginBottom: 12, marginTop: -6 }}>
-                Type the site name and select a department.
+                Type the site name and tick which departments apply.
               </p>
-              <div className="client-input-header">
-                <span>Site Name</span>
-                <span>Department</span>
-                <span />
-              </div>
+
               {editSites.map((row, i) => (
-                <div key={i} className="client-input-row">
-                  <input
-                    placeholder="e.g. Brockman 4"
-                    value={row.site_name}
-                    onChange={e => updateEditSite(i, 'site_name', e.target.value)}
-                    style={{ margin: 0 }}
-                  />
-                  <select
-                    value={row.department}
-                    onChange={e => updateEditSite(i, 'department', e.target.value)}
-                    style={{ margin: 0 }}
-                  >
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                  <button
-                    className="link danger"
-                    onClick={() => setEditSites(editSites.filter((_, idx) => idx !== i))}
-                    style={{ flexShrink: 0, padding: '0 6px' }}
-                  >
-                    X
-                  </button>
+                <div key={i} className="edit-site-row">
+                  <div className="edit-site-top">
+                    <input
+                      placeholder="e.g. Brockman 4"
+                      value={row.site_name}
+                      onChange={e => updateEditSiteName(i, e.target.value)}
+                      style={{ margin: 0, flex: 1 }}
+                    />
+                    <button
+                      className="link danger"
+                      onClick={() => setEditSites(editSites.filter((_, idx) => idx !== i))}
+                      style={{ flexShrink: 0, padding: '0 8px' }}
+                    >
+                      X
+                    </button>
+                  </div>
+                  <div className="dept-checkboxes">
+                    {DEPARTMENTS.map(d => (
+                      <label key={d} className={'dept-check-label' + (row.departments.includes(d) ? ' checked' : '')}>
+                        <input
+                          type="checkbox"
+                          checked={row.departments.includes(d)}
+                          onChange={() => toggleDept(i, d)}
+                        />
+                        {d}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               ))}
+
               <button
                 className="link"
-                onClick={() => setEditSites([...editSites, { site_name: '', department: 'CRT' }])}
+                onClick={() => setEditSites([...editSites, { site_name: '', departments: ['CRT'] }])}
                 style={{ marginTop: 6 }}
               >
                 + Add another site
               </button>
+
               {editError && <p className="auth-msg" style={{ marginTop: 12 }}>{editError}</p>}
             </div>
+
             <div className="modal-footer">
               <button className="link" onClick={closeEdit}>Cancel</button>
               <button className="primary" onClick={saveEdit} disabled={editSaving}>
