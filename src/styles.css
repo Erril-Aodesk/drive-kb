@@ -584,3 +584,34 @@ button.link.danger { color: #C0392B; }
   background: var(--blue); display: inline-block; margin-left: 4px;
   vertical-align: middle;
 }
+
+/* ---- COMPACT HOST CLIENT LIST ---- */
+.hc-list {
+  display: flex; flex-direction: column;
+  border: 1.5px solid var(--line); border-radius: 12px;
+  overflow: visible; background: var(--card);
+}
+.hc-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; cursor: pointer; position: relative;
+  border-bottom: 1px solid var(--line);
+  transition: background .12s ease;
+}
+.hc-row:last-child { border-bottom: none; }
+.hc-row:first-child { border-radius: 10px 10px 0 0; }
+.hc-row:last-child  { border-radius: 0 0 10px 10px; }
+.hc-row:only-child  { border-radius: 10px; }
+.hc-row:hover, .hc-row.hovered { background: var(--blue-light); }
+
+.hc-row-icon { font-size: 16px; flex-shrink: 0; }
+.hc-row-name {
+  min-width: 180px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.hc-name { font-weight: 700; color: var(--navy); font-size: 14px; }
+.hc-row-sites {
+  flex: 1; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+}
+.hc-row-actions {
+  display: flex; gap: 4px; flex-shrink: 0;
+}

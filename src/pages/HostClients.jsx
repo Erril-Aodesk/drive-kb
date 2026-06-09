@@ -281,56 +281,61 @@ export default function HostClients() {
           )}
         </div>
       ) : (
-        <div className="sites-grid">
-          {filtered.map(hc => {
-            const matchedSite = getMatchedSite(hc)
-            return (
-              <div
-                key={hc.id}
-                className={'site-card clickable' + (hoveredId === hc.id ? ' hovered' : '')}
-                onMouseEnter={() => setHoveredId(hc.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => openHC(hc)}
-              >
-                <div className="site-main">
-                  <div className="site-icon">&#127968;</div>
-                  <div className="site-info">
-                    <span className="site-name">{hc.name}</span>
-                    <span className="site-count">
-                      {hc.hc_sites.length} site{hc.hc_sites.length !== 1 ? 's' : ''}
-                    </span>
-                    {matchedSite && (
-                      <span className="hc-match-label">Found via site: {matchedSite}</span>
-                    )}
-                  </div>
-                </div>
-
-                {hoveredId === hc.id && hc.hc_sites.length > 0 && (
-                  <div className="site-tooltip">
-                    <p className="tooltip-label">Mining Sites</p>
-                    <ul className="tooltip-list">
-                      {hc.hc_sites.map(s => (
-                        <li key={s.id}>
-                          <span className={'dept-pill dept-' + s.department.toLowerCase()} style={{ marginRight: 6 }}>
-                            {s.department}
-                          </span>
-                          {s.site_name}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div className="site-actions">
-                    <button className="link" onClick={e => openEdit(hc, e)}>Edit</button>
-                    <button className="link danger" onClick={e => deleteHC(hc.id, e)}>Delete</button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+<div className="hc-list">
+  {filtered.map(hc => {
+    const matchedSite = getMatchedSite(hc)
+    return (
+      <div
+        key={hc.id}
+        className={'hc-row' + (hoveredId === hc.id ? ' hovered' : '')}
+        onMouseEnter={() => setHoveredId(hc.id)}
+        onMouseLeave={() => setHoveredId(null)}
+        onClick={() => openHC(hc)}
+      >
+        <div className="hc-row-icon">&#127968;</div>
+        <div className="hc-row-name">
+          <span className="hc-name">{hc.name}</span>
+          {matchedSite && (
+            <span className="hc-match-label">via: {matchedSite}</span>
+          )}
         </div>
+        <div className="hc-row-sites">
+          {hc.hc_sites.length > 0 ? (
+            hc.hc_sites.map(s => (
+              <span key={s.id} className={'dept-pill dept-' + s.department.toLowerCase()}>
+                {s.site_name}
+              </span>
+            ))
+          ) : (
+            <span className="muted" style={{ fontSize: 12 }}>No sites</span>
+          )}
+        </div>
+        {isAdmin && (
+          <div className="hc-row-actions" onClick={e => e.stopPropagation()}>
+            <button className="link" onClick={e => openEdit(hc, e)}>Edit</button>
+            <button className="link danger" onClick={e => deleteHC(hc.id, e)}>Delete</button>
+          </div>
+        )}
+
+        {hoveredId === hc.id && hc.hc_sites.length > 0 && (
+          <div className="site-tooltip">
+            <p className="tooltip-label">Mining Sites</p>
+            <ul className="tooltip-list">
+              {hc.hc_sites.map(s => (
+                <li key={s.id}>
+                  <span className={'dept-pill dept-' + s.department.toLowerCase()} style={{ marginRight: 6 }}>
+                    {s.department}
+                  </span>
+                  {s.site_name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
+  })}
+</div>
       )}
 
       {/* Detail popup */}
