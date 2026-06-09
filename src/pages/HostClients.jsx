@@ -11,7 +11,6 @@ const [notesExpanded, setNotesExpanded] = useState(false)
   const { isAdmin } = useAuth()
   const [hostClients, setHostClients] = useState([])
   const [loading, setLoading] = useState(true)
-  const [hoveredId, setHoveredId] = useState(null)
   const [selectedHC, setSelectedHC] = useState(null)
   const [activeTab, setActiveTab] = useState('CRT')
   const [search, setSearch] = useState('')
@@ -272,7 +271,7 @@ const filtered = hostClients.filter(hc => {
       <div className="host-header">
         <div>
           <h1>Host Clients</h1>
-          <p className="muted">Hover a client to see their sites. Click to open full details.</p>
+          <p className="muted">Click a client to open full details.</p>
         </div>
         {isAdmin && (
           <button className="primary sm" onClick={openAdd}>+ Add New</button>
@@ -323,9 +322,7 @@ const filtered = hostClients.filter(hc => {
             return (
               <div
                 key={hc.id}
-                className={'hc-row' + (hoveredId === hc.id ? ' hovered' : '')}
-                onMouseEnter={() => setHoveredId(hc.id)}
-                onMouseLeave={() => setHoveredId(null)}
+                className="hc-row"
                 onClick={() => openHC(hc)}
               >
                 <div className="hc-row-icon">&#127968;</div>
@@ -365,21 +362,6 @@ const filtered = hostClients.filter(hc => {
                   </div>
                 )}
 
-                {hoveredId === hc.id && uniqueSites.length > 0 && (
-                  <div className="site-tooltip">
-                    <p className="tooltip-label">Mining Sites</p>
-                    <ul className="tooltip-list">
-                      {uniqueSites.map(s => (
-                        <li key={s.name}>
-                          <span style={{ marginRight: 6 }}>{s.name}</span>
-                          {s.depts.map(d => (
-                            <span key={d} className={'dept-pill dept-' + d.toLowerCase()} style={{ marginRight: 3 }}>{d}</span>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )
           })}
