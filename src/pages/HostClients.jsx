@@ -50,14 +50,16 @@ export default function HostClients() {
     setLoading(false)
   }
 
-  async function loadAttachments(hcId) {
-    const { data } = await supabase
-      .from('hc_attachments')
-      .select('*')
-      .eq('host_client_id', hcId)
-      .order('created_at', { ascending: false })
-    setAttachments(data ?? [])
-  }
+ async function loadAttachments(hcId, siteName = null) {
+  let query = supabase
+    .from('hc_attachments')
+    .select('*')
+    .eq('host_client_id', hcId)
+    .order('created_at', { ascending: false })
+  if (siteName) query = query.eq('site_name', siteName)
+  const { data } = await query
+  setAttachments(data ?? [])
+}
 
   async function loadSiteNotes(hcId) {
     const { data } = await supabase
@@ -105,7 +107,8 @@ export default function HostClients() {
     setActiveSite(null)
     setNotesSaved(false)
     setNotesExpanded(false)
-    await Promise.all([loadSiteNotes(hc.id), loadAttachments(hc.id)])
+    await loadSiteNotes(hc.id)
+setAttachments([])
   }
 
   function closeHC() {
@@ -117,11 +120,14 @@ export default function HostClients() {
     setNotesExpanded(false)
   }
 
-  function selectSite(siteName) {
-    setActiveSite(prev => prev === siteName ? null : siteName)
-    setNotesSaved(false)
-    setNotesExpanded(false)
-  }
+async function selectSite(siteName) {
+  const newSite = activeSite === siteName ? null : siteName
+  setActiveSite(newSite)
+  setNotesSaved(false)
+  setNotesExpanded(false)
+  if (newSite) await loadAttachments(selectedHC.id, newSite)
+  else setAttachments([])
+}
 
   async function saveNotes() {
     if (!activeSite) return
@@ -152,12 +158,13 @@ export default function HostClients() {
       .upload(filePath, file)
     if (uploadError) { alert(uploadError.message); setUploading(false); return }
     await supabase.from('hc_attachments').insert({
-      host_client_id: selectedHC.id,
-      filename: file.name,
-      file_path: filePath,
-      file_size: file.size,
-    })
-    await loadAttachments(selectedHC.id)
+  host_client_id: selectedHC.id,
+  site_name: activeSite,
+  filename: file.name,
+  file_path: filePath,
+  file_size: file.size,
+})
+    await loadAttachments(selectedHC.id, activeSite)
     setUploading(false)
     fileRef.current.value = ''
   }
@@ -166,7 +173,7 @@ export default function HostClients() {
     if (!confirm('Delete this attachment?')) return
     await supabase.storage.from('site-attachments').remove([att.file_path])
     await supabase.from('hc_attachments').delete().eq('id', att.id)
-    await loadAttachments(selectedHC.id)
+    await loadAttachments(selectedHC.id, activeSite)
   }
 
   function getFileUrl(filePath) {
@@ -473,18 +480,22 @@ export default function HostClients() {
             {/* Attachments */}
             <div className="site-section">
               <div className="site-section-head">
-                <span className="site-section-title">Attachments</span>
-                {isAdmin && (
-                  <div>
-                    <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
-                    <button className="outline sm" onClick={() => fileRef.current.click()} disabled={uploading}>
+                <span className="site-section-title">
+  {activeSite ? 'Attachments — ' + activeSite : 'Attachments'}
+</span>
+{isAdmin && activeSite && (
+  <div>
+    <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
+    <button className="outline sm" onClick={() => fileRef.current.click()} disabled={uploading}>
                       {uploading ? 'Uploading...' : '+ Upload file'}
                     </button>
                   </div>
                 )}
               </div>
-              {attachments.length === 0 ? (
-                <p className="muted" style={{ fontSize: 13 }}>No attachments yet.</p>
+              {!activeSite ? (
+  <p className="muted" style={{ fontSize: 13 }}>Select a site above to view or upload attachments.</p>
+) : attachments.length === 0 ? (
+  <p className="muted" style={{ fontSize: 13 }}>No attachments for {activeSite} yet.</p>
               ) : (
                 <ul className="attachment-list">
                   {attachments.map(att => (
