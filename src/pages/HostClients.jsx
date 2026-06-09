@@ -7,7 +7,6 @@ const DEPARTMENTS = ['CRT', 'MECH', 'CMC']
 export default function HostClients() {
   const { isAdmin } = useAuth()
   const [hostClients, setHostClients] = useState([])
-  const [sites, setSites] = useState([])
   const [loading, setLoading] = useState(true)
   const [hoveredId, setHoveredId] = useState(null)
   const [selectedHC, setSelectedHC] = useState(null)
@@ -24,25 +23,27 @@ export default function HostClients() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
 
-  // Add/Edit modal
-  const [showModal, setShowModal] = useState(false)
+  // Add modal — name only
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState(null)
+
+  // Edit modal — name + sites (free text)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [editingHC, setEditingHC] = useState(null)
-  const [formName, setFormName] = useState('')
-  const [formSites, setFormSites] = useState([{ site_id: '', department: 'CRT' }])
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editSites, setEditSites] = useState([{ site_name: '', department: 'CRT' }])
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState(null)
 
   async function loadAll() {
     setLoading(true)
-    const [{ data: hcData }, { data: siteData }] = await Promise.all([
-      supabase
-        .from('host_clients')
-        .select('*, hc_sites(*, mining_sites(id, name))')
-        .order('name'),
-      supabase.from('mining_sites').select('id, name').order('name'),
-    ])
-    setHostClients(hcData ?? [])
-    setSites(siteData ?? [])
+    const { data } = await supabase
+      .from('host_clients')
+      .select('*, hc_sites(*)')
+      .order('name')
+    setHostClients(data ?? [])
     setLoading(false)
   }
 
@@ -57,13 +58,13 @@ export default function HostClients() {
 
   useEffect(() => { loadAll() }, [])
 
-  // Search filter: match by host client name OR any associated site name
+  // Search: match by host client name OR site name
   const filtered = hostClients.filter(hc => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
     const nameMatch = hc.name.toLowerCase().includes(q)
     const siteMatch = (hc.hc_sites ?? []).some(s =>
-      s.mining_sites?.name.toLowerCase().includes(q)
+      s.site_name.toLowerCase().includes(q)
     )
     return nameMatch || siteMatch
   })
@@ -72,10 +73,8 @@ export default function HostClients() {
     if (!search.trim()) return null
     const q = search.toLowerCase()
     if (hc.name.toLowerCase().includes(q)) return null
-    const match = (hc.hc_sites ?? []).find(s =>
-      s.mining_sites?.name.toLowerCase().includes(q)
-    )
-    return match ? match.mining_sites?.name : null
+    const match = (hc.hc_sites ?? []).find(s => s.site_name.toLowerCase().includes(q))
+    return match ? match.site_name : null
   }
 
   async function openHC(hc) {
@@ -140,82 +139,89 @@ export default function HostClients() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
+  // Add host client — name only
   function openAdd() {
-    setEditingHC(null)
-    setFormName('')
-    setFormSites([{ site_id: '', department: 'CRT' }])
-    setError(null)
-    setShowModal(true)
+    setAddName('')
+    setAddError(null)
+    setShowAddModal(true)
   }
 
+  function closeAdd() {
+    setShowAddModal(false)
+    setAddName('')
+    setAddError(null)
+  }
+
+  async function saveAdd() {
+    if (!addName.trim()) return setAddError('Host client name is required.')
+    setAddSaving(true); setAddError(null)
+    const { error } = await supabase.from('host_clients').insert({ name: addName.trim() })
+    setAddSaving(false)
+    if (error) return setAddError(error.message)
+    closeAdd()
+    await loadAll()
+  }
+
+  // Edit host client — name + free-text sites
   function openEdit(hc, e) {
     e.stopPropagation()
     setEditingHC(hc)
-    setFormName(hc.name)
-    setFormSites(
+    setEditName(hc.name)
+    setEditSites(
       hc.hc_sites.length > 0
-        ? hc.hc_sites.map(s => ({ site_id: s.site_id, department: s.department }))
-        : [{ site_id: '', department: 'CRT' }]
+        ? hc.hc_sites.map(s => ({ site_name: s.site_name, department: s.department }))
+        : [{ site_name: '', department: 'CRT' }]
     )
-    setError(null)
-    setShowModal(true)
+    setEditError(null)
+    setShowEditModal(true)
   }
 
-  function closeModal() {
-    setShowModal(false)
+  function closeEdit() {
+    setShowEditModal(false)
     setEditingHC(null)
-    setFormName('')
-    setFormSites([{ site_id: '', department: 'CRT' }])
-    setError(null)
+    setEditName('')
+    setEditSites([{ site_name: '', department: 'CRT' }])
+    setEditError(null)
   }
 
-  function updateFormSite(index, field, value) {
-    setFormSites(prev => {
+  function updateEditSite(index, field, value) {
+    setEditSites(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
       return updated
     })
   }
 
-  async function saveHC() {
-    if (!formName.trim()) return setError('Host client name is required.')
-    const validSites = formSites.filter(s => s.site_id)
-    setSaving(true); setError(null)
+  async function saveEdit() {
+    if (!editName.trim()) return setEditError('Host client name is required.')
+    const validSites = editSites.filter(s => s.site_name.trim())
+    setEditSaving(true); setEditError(null)
     try {
-      let hcId
-      if (editingHC) {
-        await supabase.from('host_clients').update({ name: formName.trim() }).eq('id', editingHC.id)
-        hcId = editingHC.id
-        await supabase.from('hc_sites').delete().eq('host_client_id', hcId)
-      } else {
-        const { data } = await supabase
-          .from('host_clients')
-          .insert({ name: formName.trim() })
-          .select('id').single()
-        hcId = data.id
-      }
+      await supabase.from('host_clients').update({ name: editName.trim() }).eq('id', editingHC.id)
+      await supabase.from('hc_sites').delete().eq('host_client_id', editingHC.id)
       if (validSites.length > 0) {
         await supabase.from('hc_sites').insert(
           validSites.map(s => ({
-            host_client_id: hcId,
-            site_id: s.site_id,
+            host_client_id: editingHC.id,
+            site_name: s.site_name.trim(),
             department: s.department,
           }))
         )
       }
-      if (selectedHC && selectedHC.id === hcId) {
+      if (selectedHC && selectedHC.id === editingHC.id) {
         const { data } = await supabase
           .from('host_clients')
-          .select('*, hc_sites(*, mining_sites(id, name))')
-          .eq('id', hcId).single()
+          .select('*, hc_sites(*)')
+          .eq('id', editingHC.id)
+          .single()
         setSelectedHC(data)
       }
-      closeModal()
+      closeEdit()
       await loadAll()
     } catch (e) {
-      setError(e.message)
+      setEditError(e.message)
     } finally {
-      setSaving(false)
+      setEditSaving(false)
     }
   }
 
@@ -293,7 +299,6 @@ export default function HostClients() {
                   </div>
                 </div>
 
-                {/* Hover tooltip — shows all sites */}
                 {hoveredId === hc.id && hc.hc_sites.length > 0 && (
                   <div className="site-tooltip">
                     <p className="tooltip-label">Mining Sites</p>
@@ -303,7 +308,7 @@ export default function HostClients() {
                           <span className={'dept-pill dept-' + s.department.toLowerCase()} style={{ marginRight: 6 }}>
                             {s.department}
                           </span>
-                          {s.mining_sites?.name}
+                          {s.site_name}
                         </li>
                       ))}
                     </ul>
@@ -322,7 +327,7 @@ export default function HostClients() {
         </div>
       )}
 
-      {/* Host Client detail popup */}
+      {/* Detail popup */}
       {selectedHC && (
         <div className="modal-overlay" onClick={closeHC}>
           <div className="modal site-detail-modal" onClick={e => e.stopPropagation()}>
@@ -336,7 +341,6 @@ export default function HostClients() {
               <button className="modal-close" onClick={closeHC}>X</button>
             </div>
 
-            {/* Dept tabs */}
             <div className="dept-tabs">
               {DEPARTMENTS.map(dept => (
                 <button
@@ -349,7 +353,6 @@ export default function HostClients() {
               ))}
             </div>
 
-            {/* Sites for this dept */}
             <div className="dept-content">
               {tabSites.length === 0 ? (
                 <p className="muted" style={{ textAlign: 'center', fontSize: 13, padding: '16px 0' }}>
@@ -360,14 +363,13 @@ export default function HostClients() {
                   {tabSites.map(s => (
                     <li key={s.id} className="dept-client-item">
                       <span className="dept-client-dot" />
-                      <span>{s.mining_sites?.name}</span>
+                      <span>{s.site_name}</span>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-            {/* Notes */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">Notes</span>
@@ -387,7 +389,6 @@ export default function HostClients() {
               />
             </div>
 
-            {/* Attachments */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">Attachments</span>
@@ -438,55 +439,79 @@ export default function HostClients() {
         </div>
       )}
 
-      {/* Add / Edit modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={closeModal}>
+      {/* Add modal — name only */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={closeAdd}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{editingHC ? 'Edit Host Client' : 'Add Host Client'}</h2>
-              <button className="modal-close" onClick={closeModal}>X</button>
+              <h2>Add Host Client</h2>
+              <button className="modal-close" onClick={closeAdd}>X</button>
             </div>
             <div className="modal-body">
               <label className="field-label">Host Client Name</label>
               <input
                 placeholder="e.g. Rio Tinto"
-                value={formName}
-                onChange={e => setFormName(e.target.value)}
+                value={addName}
+                onChange={e => setAddName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveAdd()}
+              />
+              {addError && <p className="auth-msg">{addError}</p>}
+            </div>
+            <div className="modal-footer">
+              <button className="link" onClick={closeAdd}>Cancel</button>
+              <button className="primary" onClick={saveAdd} disabled={addSaving}>
+                {addSaving ? 'Saving...' : 'Add host client'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal — name + free-text sites */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={closeEdit}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Host Client</h2>
+              <button className="modal-close" onClick={closeEdit}>X</button>
+            </div>
+            <div className="modal-body">
+              <label className="field-label">Host Client Name</label>
+              <input
+                placeholder="e.g. Rio Tinto"
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
               />
 
               <label className="field-label">Mining Sites</label>
               <p className="muted" style={{ fontSize: 12, marginBottom: 12, marginTop: -6 }}>
-                Assign this host client to one or more mining sites with a department.
+                Type the site name and select a department.
               </p>
 
               <div className="client-input-header">
-                <span>Mining Site</span>
+                <span>Site Name</span>
                 <span>Department</span>
                 <span />
               </div>
 
-              {formSites.map((row, i) => (
+              {editSites.map((row, i) => (
                 <div key={i} className="client-input-row">
-                  <select
-                    value={row.site_id}
-                    onChange={e => updateFormSite(i, 'site_id', e.target.value)}
+                  <input
+                    placeholder="e.g. Brockman 4"
+                    value={row.site_name}
+                    onChange={e => updateEditSite(i, 'site_name', e.target.value)}
                     style={{ margin: 0 }}
-                  >
-                    <option value="">Select a site...</option>
-                    {sites.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  />
                   <select
                     value={row.department}
-                    onChange={e => updateFormSite(i, 'department', e.target.value)}
+                    onChange={e => updateEditSite(i, 'department', e.target.value)}
                     style={{ margin: 0 }}
                   >
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   <button
                     className="link danger"
-                    onClick={() => setFormSites(formSites.filter((_, idx) => idx !== i))}
+                    onClick={() => setEditSites(editSites.filter((_, idx) => idx !== i))}
                     style={{ flexShrink: 0, padding: '0 6px' }}
                   >
                     X
@@ -496,18 +521,18 @@ export default function HostClients() {
 
               <button
                 className="link"
-                onClick={() => setFormSites([...formSites, { site_id: '', department: 'CRT' }])}
+                onClick={() => setEditSites([...editSites, { site_name: '', department: 'CRT' }])}
                 style={{ marginTop: 6 }}
               >
                 + Add another site
               </button>
 
-              {error && <p className="auth-msg" style={{ marginTop: 12 }}>{error}</p>}
+              {editError && <p className="auth-msg" style={{ marginTop: 12 }}>{editError}</p>}
             </div>
             <div className="modal-footer">
-              <button className="link" onClick={closeModal}>Cancel</button>
-              <button className="primary" onClick={saveHC} disabled={saving}>
-                {saving ? 'Saving...' : editingHC ? 'Save changes' : 'Add host client'}
+              <button className="link" onClick={closeEdit}>Cancel</button>
+              <button className="primary" onClick={saveEdit} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save changes'}
               </button>
             </div>
           </div>
