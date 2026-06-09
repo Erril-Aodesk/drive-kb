@@ -501,3 +501,61 @@ button.link.danger { color: #C0392B; }
   display: grid; grid-template-columns: 1fr 120px 32px;
   align-items: center; gap: 8px; margin-bottom: 8px;
 }
+
+/* ---- SITE DETAIL SECTIONS ---- */
+.site-detail-modal { max-width: 560px; max-height: 88vh; overflow-y: auto; }
+
+.site-section {
+  padding: 16px 28px;
+  border-top: 1px solid var(--line);
+}
+.site-section-head {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 12px;
+}
+.site-section-title {
+  font-weight: 700; font-size: 14px; color: var(--navy);
+}
+
+/* Notes */
+.notes-area {
+  width: 100%; margin: 0; resize: vertical;
+  font-family: var(--ui); font-size: 14px;
+  line-height: 1.6; min-height: 90px;
+  background: var(--paper);
+}
+.notes-area[readonly] {
+  background: var(--slate-light); cursor: default;
+  border-color: var(--line);
+}
+
+/* Attachments */
+.attachment-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.attachment-item {
+  display: flex; align-items: center; gap: 8px;
+}
+.attachment-link {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px;
+  text-decoration: none; color: inherit;
+  transition: border-color .15s, background .15s;
+}
+.attachment-link:hover {
+  border-color: var(--blue); background: var(--blue-light);
+}
+.attachment-icon { font-size: 20px; flex-shrink: 0; }
+.attachment-info {
+  flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+.attachment-name {
+  font-weight: 600; color: var(--navy); font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.attachment-size { font-size: 11px; color: var(--muted); }
+.attachment-download {
+  font-size: 12px; font-weight: 700; color: var(--blue); flex-shrink: 0;
+}
