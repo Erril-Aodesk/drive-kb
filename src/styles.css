@@ -576,3 +576,11 @@ button.link.danger { color: #C0392B; }
   font-size: 11px; color: var(--blue); font-weight: 600;
   font-style: italic; margin-top: 2px;
 }
+
+/* ---- DEPT TAB NOTE INDICATOR ---- */
+.dept-tab { position: relative; }
+.dept-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--blue); display: inline-block; margin-left: 4px;
+  vertical-align: middle;
+}

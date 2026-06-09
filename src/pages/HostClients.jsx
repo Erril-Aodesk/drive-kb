@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
 const DEPARTMENTS = ['CRT', 'MECH', 'CMC']
+const EMPTY_NOTES = { CRT: '', MECH: '', CMC: '' }
 
 export default function HostClients() {
   const { isAdmin } = useAuth()
@@ -13,8 +14,8 @@ export default function HostClients() {
   const [activeTab, setActiveTab] = useState('CRT')
   const [search, setSearch] = useState('')
 
-  // Notes
-  const [notes, setNotes] = useState('')
+  // Per-department notes
+  const [notes, setNotes] = useState(EMPTY_NOTES)
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
 
@@ -23,13 +24,13 @@ export default function HostClients() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
 
-  // Add modal — name only
+  // Add modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [addName, setAddName] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState(null)
 
-  // Edit modal — name + sites (free text)
+  // Edit modal
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingHC, setEditingHC] = useState(null)
   const [editName, setEditName] = useState('')
@@ -56,17 +57,27 @@ export default function HostClients() {
     setAttachments(data ?? [])
   }
 
+  async function loadNotes(hcId) {
+    const { data } = await supabase
+      .from('hc_dept_notes')
+      .select('department, notes')
+      .eq('host_client_id', hcId)
+    const mapped = { CRT: '', MECH: '', CMC: '' }
+    if (data) {
+      data.forEach(row => { mapped[row.department] = row.notes })
+    }
+    setNotes(mapped)
+  }
+
   useEffect(() => { loadAll() }, [])
 
-  // Search: match by host client name OR site name
   const filtered = hostClients.filter(hc => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
-    const nameMatch = hc.name.toLowerCase().includes(q)
-    const siteMatch = (hc.hc_sites ?? []).some(s =>
-      s.site_name.toLowerCase().includes(q)
+    return (
+      hc.name.toLowerCase().includes(q) ||
+      (hc.hc_sites ?? []).some(s => s.site_name.toLowerCase().includes(q))
     )
-    return nameMatch || siteMatch
   })
 
   function getMatchedSite(hc) {
@@ -80,24 +91,31 @@ export default function HostClients() {
   async function openHC(hc) {
     setSelectedHC(hc)
     setActiveTab('CRT')
-    setNotes(hc.notes ?? '')
     setNotesSaved(false)
-    await loadAttachments(hc.id)
+    await Promise.all([
+      loadNotes(hc.id),
+      loadAttachments(hc.id),
+    ])
   }
 
   function closeHC() {
     setSelectedHC(null)
     setAttachments([])
-    setNotes('')
+    setNotes(EMPTY_NOTES)
+    setNotesSaved(false)
   }
 
   async function saveNotes() {
     setSavingNotes(true)
-    await supabase.from('host_clients').update({ notes }).eq('id', selectedHC.id)
+    await supabase
+      .from('hc_dept_notes')
+      .upsert(
+        { host_client_id: selectedHC.id, department: activeTab, notes: notes[activeTab], updated_at: new Date().toISOString() },
+        { onConflict: 'host_client_id,department' }
+      )
     setSavingNotes(false)
     setNotesSaved(true)
     setTimeout(() => setNotesSaved(false), 3000)
-    await loadAll()
   }
 
   async function handleUpload(e) {
@@ -139,17 +157,12 @@ export default function HostClients() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
-  // Add host client — name only
   function openAdd() {
-    setAddName('')
-    setAddError(null)
-    setShowAddModal(true)
+    setAddName(''); setAddError(null); setShowAddModal(true)
   }
 
   function closeAdd() {
-    setShowAddModal(false)
-    setAddName('')
-    setAddError(null)
+    setShowAddModal(false); setAddName(''); setAddError(null)
   }
 
   async function saveAdd() {
@@ -162,7 +175,6 @@ export default function HostClients() {
     await loadAll()
   }
 
-  // Edit host client — name + free-text sites
   function openEdit(hc, e) {
     e.stopPropagation()
     setEditingHC(hc)
@@ -177,11 +189,8 @@ export default function HostClients() {
   }
 
   function closeEdit() {
-    setShowEditModal(false)
-    setEditingHC(null)
-    setEditName('')
-    setEditSites([{ site_name: '', department: 'CRT' }])
-    setEditError(null)
+    setShowEditModal(false); setEditingHC(null)
+    setEditName(''); setEditSites([{ site_name: '', department: 'CRT' }]); setEditError(null)
   }
 
   function updateEditSite(index, field, value) {
@@ -210,10 +219,8 @@ export default function HostClients() {
       }
       if (selectedHC && selectedHC.id === editingHC.id) {
         const { data } = await supabase
-          .from('host_clients')
-          .select('*, hc_sites(*)')
-          .eq('id', editingHC.id)
-          .single()
+          .from('host_clients').select('*, hc_sites(*)')
+          .eq('id', editingHC.id).single()
         setSelectedHC(data)
       }
       closeEdit()
@@ -249,7 +256,6 @@ export default function HostClients() {
         )}
       </div>
 
-      {/* Search */}
       <div className="hc-search-row">
         <input
           className="search"
@@ -346,9 +352,10 @@ export default function HostClients() {
                 <button
                   key={dept}
                   className={'dept-tab' + (activeTab === dept ? ' active' : '')}
-                  onClick={() => setActiveTab(dept)}
+                  onClick={() => { setActiveTab(dept); setNotesSaved(false) }}
                 >
                   {dept}
+                  {notes[dept] && <span className="dept-tab-dot" />}
                 </button>
               ))}
             </div>
@@ -370,9 +377,10 @@ export default function HostClients() {
               )}
             </div>
 
+            {/* Notes — unique per department */}
             <div className="site-section">
               <div className="site-section-head">
-                <span className="site-section-title">Notes</span>
+                <span className="site-section-title">Notes ({activeTab})</span>
                 {isAdmin && (
                   <button className="primary sm" onClick={saveNotes} disabled={savingNotes}>
                     {savingNotes ? 'Saving...' : notesSaved ? 'Saved' : 'Save notes'}
@@ -381,14 +389,15 @@ export default function HostClients() {
               </div>
               <textarea
                 className="notes-area"
-                placeholder="Add notes about this host client..."
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
+                placeholder={'Add notes for ' + activeTab + ' department...'}
+                value={notes[activeTab]}
+                onChange={e => setNotes(n => ({ ...n, [activeTab]: e.target.value }))}
                 readOnly={!isAdmin}
                 rows={4}
               />
             </div>
 
+            {/* Attachments */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">Attachments</span>
@@ -439,7 +448,7 @@ export default function HostClients() {
         </div>
       )}
 
-      {/* Add modal — name only */}
+      {/* Add modal */}
       {showAddModal && (
         <div className="modal-overlay" onClick={closeAdd}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -467,7 +476,7 @@ export default function HostClients() {
         </div>
       )}
 
-      {/* Edit modal — name + free-text sites */}
+      {/* Edit modal */}
       {showEditModal && (
         <div className="modal-overlay" onClick={closeEdit}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -482,18 +491,15 @@ export default function HostClients() {
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
               />
-
               <label className="field-label">Mining Sites</label>
               <p className="muted" style={{ fontSize: 12, marginBottom: 12, marginTop: -6 }}>
                 Type the site name and select a department.
               </p>
-
               <div className="client-input-header">
                 <span>Site Name</span>
                 <span>Department</span>
                 <span />
               </div>
-
               {editSites.map((row, i) => (
                 <div key={i} className="client-input-row">
                   <input
@@ -518,7 +524,6 @@ export default function HostClients() {
                   </button>
                 </div>
               ))}
-
               <button
                 className="link"
                 onClick={() => setEditSites([...editSites, { site_name: '', department: 'CRT' }])}
@@ -526,7 +531,6 @@ export default function HostClients() {
               >
                 + Add another site
               </button>
-
               {editError && <p className="auth-msg" style={{ marginTop: 12 }}>{editError}</p>}
             </div>
             <div className="modal-footer">
