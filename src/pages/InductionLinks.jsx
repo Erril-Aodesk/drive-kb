@@ -13,14 +13,14 @@ export default function InductionLinks() {
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [search, setSearch] = useState('')
 
   async function loadLinks() {
     setLoading(true)
-    const { data } = await supabase
-      .from('induction_links')
-      .select('*')
-      .order('sort_order')
-      .order('created_at')
+const { data } = await supabase
+  .from('induction_links')
+  .select('*')
+  .order('title')
     setLinks(data ?? [])
     setLoading(false)
   }
@@ -128,9 +128,26 @@ export default function InductionLinks() {
         </div>
       )}
 
-      {loading ? (
-        <p className="muted">Loading...</p>
-      ) : links.length === 0 ? (
+{!showForm && (
+  <div style={{ marginBottom: 20 }}>
+    <input
+      className="search"
+      style={{ maxWidth: 360, margin: 0 }}
+      placeholder="Search links..."
+      value={search}
+      onChange={e => setSearch(e.target.value)}
+    />
+  </div>
+)}
+
+{loading ? (
+  <p className="muted">Loading...</p>
+) : links.filter(l =>
+    !search.trim() ||
+    l.title.toLowerCase().includes(search.toLowerCase()) ||
+    (l.description ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    l.url.toLowerCase().includes(search.toLowerCase())
+  ).length === 0 ? (
         <div className="empty-links">
           <p className="muted">No induction links yet.</p>
           {isAdmin && (
@@ -138,8 +155,15 @@ export default function InductionLinks() {
           )}
         </div>
       ) : (
-        <ul className="link-list">
-          {links.map(link => (
+<ul className="link-list">
+  {links
+    .filter(l =>
+      !search.trim() ||
+      l.title.toLowerCase().includes(search.toLowerCase()) ||
+      (l.description ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      l.url.toLowerCase().includes(search.toLowerCase())
+    )
+    .map(link => (
             <li key={link.id} className="link-card">
               <a
                 href={link.url}
