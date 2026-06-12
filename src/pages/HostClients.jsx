@@ -14,25 +14,22 @@ export default function HostClients() {
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('All')
 
-  // Per-site notes
   const [siteNotes, setSiteNotes] = useState({})
   const [activeSite, setActiveSite] = useState(null)
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
   const [notesExpanded, setNotesExpanded] = useState(false)
 
-  // Attachments
   const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef()
 
-  // Add modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [addName, setAddName] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState(null)
 
-  // Edit modal
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingHC, setEditingHC] = useState(null)
   const [editName, setEditName] = useState('')
@@ -50,16 +47,16 @@ export default function HostClients() {
     setLoading(false)
   }
 
- async function loadAttachments(hcId, siteName = null) {
-  let query = supabase
-    .from('hc_attachments')
-    .select('*')
-    .eq('host_client_id', hcId)
-    .order('created_at', { ascending: false })
-  if (siteName) query = query.eq('site_name', siteName)
-  const { data } = await query
-  setAttachments(data ?? [])
-}
+  async function loadAttachments(hcId, siteName = null) {
+    let query = supabase
+      .from('hc_attachments')
+      .select('*')
+      .eq('host_client_id', hcId)
+      .order('created_at', { ascending: false })
+    if (siteName) query = query.eq('site_name', siteName)
+    const { data } = await query
+    setAttachments(data ?? [])
+  }
 
   async function loadSiteNotes(hcId) {
     const { data } = await supabase
@@ -107,8 +104,8 @@ export default function HostClients() {
     setActiveSite(null)
     setNotesSaved(false)
     setNotesExpanded(false)
+    setAttachments([])
     await loadSiteNotes(hc.id)
-setAttachments([])
   }
 
   function closeHC() {
@@ -120,14 +117,14 @@ setAttachments([])
     setNotesExpanded(false)
   }
 
-async function selectSite(siteName) {
-  const newSite = activeSite === siteName ? null : siteName
-  setActiveSite(newSite)
-  setNotesSaved(false)
-  setNotesExpanded(false)
-  if (newSite) await loadAttachments(selectedHC.id, newSite)
-  else setAttachments([])
-}
+  async function selectSite(siteName) {
+    const newSite = activeSite === siteName ? null : siteName
+    setActiveSite(newSite)
+    setNotesSaved(false)
+    setNotesExpanded(false)
+    if (newSite) await loadAttachments(selectedHC.id, newSite)
+    else setAttachments([])
+  }
 
   async function saveNotes() {
     if (!activeSite) return
@@ -148,8 +145,7 @@ async function selectSite(siteName) {
     setTimeout(() => setNotesSaved(false), 3000)
   }
 
-  async function handleUpload(e) {
-    const file = e.target.files[0]
+  async function handleUploadFile(file) {
     if (!file) return
     setUploading(true)
     const filePath = selectedHC.id + '/' + Date.now() + '_' + file.name
@@ -158,15 +154,19 @@ async function selectSite(siteName) {
       .upload(filePath, file)
     if (uploadError) { alert(uploadError.message); setUploading(false); return }
     await supabase.from('hc_attachments').insert({
-  host_client_id: selectedHC.id,
-  site_name: activeSite,
-  filename: file.name,
-  file_path: filePath,
-  file_size: file.size,
-})
+      host_client_id: selectedHC.id,
+      site_name: activeSite,
+      filename: file.name,
+      file_path: filePath,
+      file_size: file.size,
+    })
     await loadAttachments(selectedHC.id, activeSite)
     setUploading(false)
     fileRef.current.value = ''
+  }
+
+  async function handleUpload(e) {
+    handleUploadFile(e.target.files[0])
   }
 
   async function deleteAttachment(att) {
@@ -398,7 +398,6 @@ async function selectSite(siteName) {
               <button className="modal-close" onClick={closeHC}>X</button>
             </div>
 
-            {/* Dept tabs */}
             <div className="dept-tabs">
               {DEPARTMENTS.map(dept => (
                 <button
@@ -409,6 +408,7 @@ async function selectSite(siteName) {
                     setActiveSite(null)
                     setNotesSaved(false)
                     setNotesExpanded(false)
+                    setAttachments([])
                   }}
                 >
                   {dept}
@@ -416,7 +416,6 @@ async function selectSite(siteName) {
               ))}
             </div>
 
-            {/* Scrollable sites list — click to select */}
             <div className="dept-content">
               {tabSites.length === 0 ? (
                 <p className="muted" style={{ textAlign: 'center', fontSize: 13, padding: '16px 0' }}>
@@ -441,7 +440,7 @@ async function selectSite(siteName) {
               )}
             </div>
 
-            {/* Per-site notes */}
+            {/* Notes */}
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">
@@ -460,7 +459,6 @@ async function selectSite(siteName) {
                   </div>
                 )}
               </div>
-
               {!activeSite ? (
                 <p className="muted" style={{ fontSize: 13 }}>
                   Select a site above to view or add notes.
@@ -481,44 +479,68 @@ async function selectSite(siteName) {
             <div className="site-section">
               <div className="site-section-head">
                 <span className="site-section-title">
-  {activeSite ? 'Attachments — ' + activeSite : 'Attachments'}
-</span>
-{isAdmin && activeSite && (
-  <div>
-    <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
-    <button className="outline sm" onClick={() => fileRef.current.click()} disabled={uploading}>
-                      {uploading ? 'Uploading...' : '+ Upload file'}
-                    </button>
-                  </div>
-                )}
+                  {activeSite ? 'Attachments — ' + activeSite : 'Attachments'}
+                </span>
               </div>
+
               {!activeSite ? (
-  <p className="muted" style={{ fontSize: 13 }}>Select a site above to view or upload attachments.</p>
-) : attachments.length === 0 ? (
-  <p className="muted" style={{ fontSize: 13 }}>No attachments for {activeSite} yet.</p>
+                <p className="muted" style={{ fontSize: 13 }}>Select a site above to view or upload attachments.</p>
               ) : (
-                <ul className="attachment-list">
-                  {attachments.map(att => (
-                    <li key={att.id} className="attachment-item">
-                      <a
-                        href={getFileUrl(att.file_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="attachment-link"
+                <div>
+                  {isAdmin && (
+                    <div>
+                      <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
+                      <div
+                        className={'attach-dropzone' + (dragOver ? ' drag-over' : '')}
+                        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={e => {
+                          e.preventDefault()
+                          setDragOver(false)
+                          const file = e.dataTransfer.files[0]
+                          if (file) handleUploadFile(file)
+                        }}
+                        onClick={() => fileRef.current.click()}
                       >
-                        <span className="attachment-icon">&#128196;</span>
-                        <div className="attachment-info">
-                          <span className="attachment-name">{att.filename}</span>
-                          <span className="attachment-size">{formatSize(att.file_size)}</span>
-                        </div>
-                        <span className="attachment-download">Download</span>
-                      </a>
-                      {isAdmin && (
-                        <button className="link danger" onClick={() => deleteAttachment(att)}>X</button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                        {uploading ? (
+                          <span>Uploading...</span>
+                        ) : (
+                          <span>
+                            <span className="attach-drop-icon">&#128206;</span>
+                            {' '}Drop a file here or <strong>click to browse</strong>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {attachments.length === 0 ? (
+                    <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>No attachments yet.</p>
+                  ) : (
+                    <ul className="attachment-list" style={{ marginTop: 10 }}>
+                      {attachments.map(att => (
+                        <li key={att.id} className="attachment-item">
+                          <a
+                            href={getFileUrl(att.file_path)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="attachment-link"
+                          >
+                            <span className="attachment-icon">&#128196;</span>
+                            <div className="attachment-info">
+                              <span className="attachment-name">{att.filename}</span>
+                              <span className="attachment-size">{formatSize(att.file_size)}</span>
+                            </div>
+                            <span className="attachment-download">Download</span>
+                          </a>
+                          {isAdmin && (
+                            <button className="link danger" onClick={() => deleteAttachment(att)}>Delete</button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
             </div>
 
